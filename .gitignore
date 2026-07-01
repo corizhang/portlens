@@ -1,0 +1,20 @@
+# Build outputs
+bin/
+obj/
+**/bin/
+**/obj/
+
+# Published deliverables
+outputs/
+
+# Local/temp files
+.vs/
+.vscode/
+*.user
+*.suo
+*.tmp
+*.log
+
+# OS files
+Thumbs.db
+Desktop.ini
