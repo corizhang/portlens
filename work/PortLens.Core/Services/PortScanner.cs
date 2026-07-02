@@ -47,6 +47,8 @@ public sealed class PortScanner
 
     public void Kill(int processId) => _inspector.Kill(processId);
 
+    public int CountChildProcesses(int processId) => _inspector.CountChildProcesses(processId);
+
     private static bool IsLocalAddress(string address)
     {
         return address is "0.0.0.0" or "127.0.0.1" or "::" or "::1"

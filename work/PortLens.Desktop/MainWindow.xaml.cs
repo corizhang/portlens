@@ -36,6 +36,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _showSystemPorts;
     private int _refreshIntervalSeconds = 5;
     private bool _rememberWindowPlacement = true;
+    private bool _closeToTray = true;
+    private bool _isExiting;
     private string _searchText = "";
     private string _statusText = "Scanning...";
 
@@ -147,6 +149,22 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool CloseToTray
+    {
+        get => _closeToTray;
+        set
+        {
+            if (_closeToTray == value)
+            {
+                return;
+            }
+
+            _closeToTray = value;
+            OnPropertyChanged(nameof(CloseToTray));
+            ScheduleSettingsSave();
+        }
+    }
+
     public string StatusText
     {
         get => _statusText;
@@ -231,10 +249,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) =>
         {
+            _isExiting = true;
             SaveSettings();
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
-            Closing -= MainWindow_Closing;
             Close();
         });
 
@@ -266,6 +282,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         SaveSettings();
+        if (_isExiting || !CloseToTray)
+        {
+            _notifyIcon.Visible = false;
+            _notifyIcon.Dispose();
+            return;
+        }
+
         e.Cancel = true;
         Hide();
     }
@@ -287,6 +310,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _showSystemPorts = _settings.ShowSystemPorts;
             _refreshIntervalSeconds = NormalizeRefreshInterval(_settings.RefreshIntervalSeconds);
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
+            _closeToTray = _settings.CloseToTray;
 
             if (_settings.RememberWindowPlacement && IsUsableWindowPlacement(_settings))
             {
@@ -358,6 +382,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settings.ShowSystemPorts = ShowSystemPorts;
         _settings.RefreshIntervalSeconds = RefreshIntervalSeconds;
         _settings.RememberWindowPlacement = RememberWindowPlacement;
+        _settings.CloseToTray = CloseToTray;
         _settings.IsMaximized = WindowState == WindowState.Maximized;
 
         if (!RememberWindowPlacement)
@@ -437,6 +462,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowSystemPorts = dialogResult.ShowSystemPorts;
         RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
         RememberWindowPlacement = dialogResult.RememberWindowPlacement;
+        CloseToTray = dialogResult.CloseToTray;
         SaveSettings();
     }
 
@@ -511,6 +537,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
         panel.Children.Add(BuildSettingRow("Window placement", "Restore size and position on launch.", rememberPlacement));
 
+        var closeToTray = new ToggleButton
+        {
+            IsChecked = CloseToTray,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        panel.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
+
         panel.Children.Add(new TextBlock
         {
             Text = "PortLens - local development port monitor",
@@ -567,7 +601,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             {
                 ShowSystemPorts = showSystemPorts.IsChecked == true,
                 RefreshIntervalSeconds = selectedSeconds,
-                RememberWindowPlacement = rememberPlacement.IsChecked == true
+                RememberWindowPlacement = rememberPlacement.IsChecked == true,
+                CloseToTray = closeToTray.IsChecked == true
             };
         };
         rightActions.Children.Add(cancel);
@@ -625,6 +660,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ShowSystemPorts = false;
         RefreshIntervalSeconds = 5;
         RememberWindowPlacement = true;
+        CloseToTray = true;
         _settings.WindowLeft = null;
         _settings.WindowTop = null;
         _settings.WindowWidth = null;
@@ -660,11 +696,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateScanTimerInterval();
     }
 
-    private void OpenButton_Click(object sender, RoutedEventArgs e)
+    private async void OpenButton_Click(object sender, RoutedEventArgs e)
     {
-        if (GetEntry(sender) is { } entry)
+        if (GetEntry(sender) is not { } entry)
+        {
+            return;
+        }
+
+        try
         {
             Process.Start(new ProcessStartInfo(entry.Url) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Open failed", ex.Message);
         }
     }
 
@@ -673,6 +718,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (GetEntry(sender) is { } entry)
         {
             System.Windows.Clipboard.SetText(entry.Url);
+            StatusText = $"Copied {entry.Url}";
         }
     }
 
@@ -681,19 +727,31 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (GetEntry(sender) is { } entry)
         {
             System.Windows.Clipboard.SetText(entry.ProcessId.ToString());
+            StatusText = $"Copied PID {entry.ProcessId}";
         }
     }
 
-    private void OpenDirectoryButton_Click(object sender, RoutedEventArgs e)
+    private async void OpenDirectoryButton_Click(object sender, RoutedEventArgs e)
     {
         if (GetEntry(sender) is not { } entry || string.IsNullOrWhiteSpace(entry.WorkingDirectory))
         {
+            await ShowErrorDialogAsync("Directory unavailable", "PortLens could not infer a project directory for this process.");
             return;
         }
 
-        if (Directory.Exists(entry.WorkingDirectory))
+        if (!Directory.Exists(entry.WorkingDirectory))
+        {
+            await ShowErrorDialogAsync("Directory unavailable", $"The directory no longer exists:\n{entry.WorkingDirectory}");
+            return;
+        }
+
+        try
         {
             Process.Start(new ProcessStartInfo(entry.WorkingDirectory) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            await ShowErrorDialogAsync("Open directory failed", ex.Message);
         }
     }
 
@@ -704,7 +762,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        var confirmed = await ShowKillConfirmationAsync(entry);
+        var childProcessCount = await Task.Run(() => _scanner.CountChildProcesses(entry.ProcessId));
+        var confirmed = await ShowKillConfirmationAsync(entry, childProcessCount);
         if (!confirmed)
         {
             return;
@@ -721,7 +780,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static async Task<bool> ShowKillConfirmationAsync(PortEntryViewModel entry)
+    private static async Task<bool> ShowKillConfirmationAsync(PortEntryViewModel entry, int childProcessCount)
     {
         var panel = new StackPanel
         {
@@ -754,7 +813,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         panel.Children.Add(new TextBlock
         {
-            Text = $"Kill PID {entry.ProcessId} ({entry.ProcessName}) and its child processes?",
+            Text = childProcessCount > 0
+                ? $"Kill PID {entry.ProcessId} ({entry.ProcessName}) and {childProcessCount} child process(es)?"
+                : $"Kill PID {entry.ProcessId} ({entry.ProcessName})?",
             TextWrapping = TextWrapping.Wrap,
             FontSize = 14,
             Foreground = new SolidColorBrush(WpfColor.FromRgb(72, 63, 58)),
@@ -967,4 +1028,5 @@ internal sealed class SettingsDialogResult
     public bool ShowSystemPorts { get; init; }
     public int RefreshIntervalSeconds { get; init; } = 5;
     public bool RememberWindowPlacement { get; init; } = true;
+    public bool CloseToTray { get; init; } = true;
 }
