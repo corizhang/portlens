@@ -96,6 +96,9 @@
                 </Grid>
 
                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top">
+                    <Button Style="{StaticResource MaterialDesignIconButton}" ToolTip="Settings" Width="32" Height="32" Click="SettingsButton_Click">
+                        <materialDesign:PackIcon Kind="CogOutline" Width="17" Height="17" />
+                    </Button>
                     <Button Style="{StaticResource MaterialDesignIconButton}" ToolTip="Minimize" Width="32" Height="32" Click="MinimizeButton_Click">
                         <materialDesign:PackIcon Kind="Minus" Width="17" Height="17" />
                     </Button>

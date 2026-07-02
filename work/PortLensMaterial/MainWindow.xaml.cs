@@ -33,6 +33,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _isApplyingSettings;
     private bool _isRefreshing;
     private bool _showSystemPorts;
+    private int _refreshIntervalSeconds = 5;
+    private bool _rememberWindowPlacement = true;
     private string _searchText = "";
     private string _statusText = "Scanning...";
 
@@ -57,7 +59,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SaveSettings();
         };
 
-        _timer.Interval = TimeSpan.FromSeconds(5);
+        _timer.Interval = TimeSpan.FromSeconds(RefreshIntervalSeconds);
         _timer.Tick += (_, _) => _ = RefreshPortsAsync();
         _timer.Start();
 
@@ -102,6 +104,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(ShowSystemPorts));
             ScheduleSettingsSave();
             _ = RefreshPortsAsync();
+        }
+    }
+
+    public int RefreshIntervalSeconds
+    {
+        get => _refreshIntervalSeconds;
+        set
+        {
+            var normalized = NormalizeRefreshInterval(value);
+            if (_refreshIntervalSeconds == normalized)
+            {
+                return;
+            }
+
+            _refreshIntervalSeconds = normalized;
+            _timer.Interval = TimeSpan.FromSeconds(_refreshIntervalSeconds);
+            OnPropertyChanged(nameof(RefreshIntervalSeconds));
+            ScheduleSettingsSave();
+        }
+    }
+
+    public bool RememberWindowPlacement
+    {
+        get => _rememberWindowPlacement;
+        set
+        {
+            if (_rememberWindowPlacement == value)
+            {
+                return;
+            }
+
+            _rememberWindowPlacement = value;
+            OnPropertyChanged(nameof(RememberWindowPlacement));
+            ScheduleSettingsSave();
         }
     }
 
@@ -242,8 +278,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _searchText = _settings.SearchText ?? "";
             _showSystemPorts = _settings.ShowSystemPorts;
+            _refreshIntervalSeconds = NormalizeRefreshInterval(_settings.RefreshIntervalSeconds);
+            _rememberWindowPlacement = _settings.RememberWindowPlacement;
 
-            if (IsUsableWindowPlacement(_settings))
+            if (_settings.RememberWindowPlacement && IsUsableWindowPlacement(_settings))
             {
                 WindowStartupLocation = WindowStartupLocation.Manual;
                 Left = _settings.WindowLeft!.Value;
@@ -252,7 +290,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 Height = Math.Max(MinHeight, _settings.WindowHeight!.Value);
             }
 
-            if (_settings.IsMaximized)
+            if (_settings.RememberWindowPlacement && _settings.IsMaximized)
             {
                 WindowState = WindowState.Maximized;
             }
@@ -311,9 +349,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _settings.SearchText = SearchText;
         _settings.ShowSystemPorts = ShowSystemPorts;
+        _settings.RefreshIntervalSeconds = RefreshIntervalSeconds;
+        _settings.RememberWindowPlacement = RememberWindowPlacement;
         _settings.IsMaximized = WindowState == WindowState.Maximized;
 
-        if (WindowState == WindowState.Normal)
+        if (!RememberWindowPlacement)
+        {
+            _settings.WindowLeft = null;
+            _settings.WindowTop = null;
+            _settings.WindowWidth = null;
+            _settings.WindowHeight = null;
+            _settings.IsMaximized = false;
+        }
+        else if (WindowState == WindowState.Normal)
         {
             _settings.WindowLeft = Left;
             _settings.WindowTop = Top;
@@ -331,9 +379,237 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private static int NormalizeRefreshInterval(int seconds)
+    {
+        return seconds switch
+        {
+            3 or 5 or 10 or 30 => seconds,
+            _ => 5
+        };
+    }
+
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await RefreshPortsAsync();
+    }
+
+    private async void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await ShowSettingsDialogAsync();
+    }
+
+    private async Task ShowSettingsDialogAsync()
+    {
+        var result = await DialogHost.Show(BuildSettingsDialog(), "RootDialog");
+        if (result is not SettingsDialogResult dialogResult)
+        {
+            return;
+        }
+
+        if (dialogResult.Reset)
+        {
+            ApplyDefaultSettings();
+            SaveSettings();
+            _ = RefreshPortsAsync();
+            return;
+        }
+
+        ShowSystemPorts = dialogResult.ShowSystemPorts;
+        RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
+        RememberWindowPlacement = dialogResult.RememberWindowPlacement;
+        SaveSettings();
+    }
+
+    private FrameworkElement BuildSettingsDialog()
+    {
+        var panel = new StackPanel
+        {
+            Width = 420,
+            Margin = new Thickness(24)
+        };
+
+        var header = new StackPanel
+        {
+            Orientation = WpfOrientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 18)
+        };
+        header.Children.Add(new PackIcon
+        {
+            Kind = PackIconKind.CogOutline,
+            Width = 28,
+            Height = 28,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(103, 58, 183)),
+            Margin = new Thickness(0, 0, 12, 0)
+        });
+        header.Children.Add(new TextBlock
+        {
+            Text = "Settings",
+            FontSize = 20,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(34, 27, 24)),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        panel.Children.Add(header);
+
+        var showSystemPorts = new ToggleButton
+        {
+            IsChecked = ShowSystemPorts,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        panel.Children.Add(BuildSettingRow("System ports", "Include non-development listening ports.", showSystemPorts));
+
+        var refreshInterval = new System.Windows.Controls.ComboBox
+        {
+            Width = 128,
+            SelectedValue = RefreshIntervalSeconds,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedComboBox")
+        };
+        foreach (var seconds in new[] { 3, 5, 10, 30 })
+        {
+            refreshInterval.Items.Add(new ComboBoxItem
+            {
+                Content = $"{seconds} seconds",
+                Tag = seconds
+            });
+        }
+
+        refreshInterval.SelectedIndex = RefreshIntervalSeconds switch
+        {
+            3 => 0,
+            10 => 2,
+            30 => 3,
+            _ => 1
+        };
+        panel.Children.Add(BuildSettingRow("Refresh interval", "How often PortLens scans in the background.", refreshInterval));
+
+        var rememberPlacement = new ToggleButton
+        {
+            IsChecked = RememberWindowPlacement,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        panel.Children.Add(BuildSettingRow("Window placement", "Restore size and position on launch.", rememberPlacement));
+
+        panel.Children.Add(new TextBlock
+        {
+            Text = "PortLens Material - local development port monitor",
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            FontSize = 12,
+            Margin = new Thickness(0, 16, 0, 18)
+        });
+
+        var actions = new Grid();
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var reset = new WpfButton
+        {
+            Content = "Reset",
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+            MinWidth = 86,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(179, 38, 30)),
+            Command = DialogHost.CloseDialogCommand
+        };
+        reset.CommandParameter = new SettingsDialogResult
+        {
+            Reset = true
+        };
+        Grid.SetColumn(reset, 0);
+        actions.Children.Add(reset);
+
+        var rightActions = new StackPanel
+        {
+            Orientation = WpfOrientation.Horizontal,
+            HorizontalAlignment = WpfHorizontalAlignment.Right
+        };
+        var cancel = new WpfButton
+        {
+            Content = "Cancel",
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+            Margin = new Thickness(0, 0, 8, 0),
+            MinWidth = 86,
+            Command = DialogHost.CloseDialogCommand
+        };
+        var save = new WpfButton
+        {
+            Content = "Save",
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+            MinWidth = 86,
+            Command = DialogHost.CloseDialogCommand
+        };
+        save.Click += (_, _) =>
+        {
+            var selectedSeconds = refreshInterval.SelectedItem is ComboBoxItem { Tag: int seconds }
+                ? seconds
+                : 5;
+            save.CommandParameter = new SettingsDialogResult
+            {
+                ShowSystemPorts = showSystemPorts.IsChecked == true,
+                RefreshIntervalSeconds = selectedSeconds,
+                RememberWindowPlacement = rememberPlacement.IsChecked == true
+            };
+        };
+        rightActions.Children.Add(cancel);
+        rightActions.Children.Add(save);
+        Grid.SetColumn(rightActions, 1);
+        actions.Children.Add(rightActions);
+        panel.Children.Add(actions);
+
+        return panel;
+    }
+
+    private static Grid BuildSettingRow(string title, string description, UIElement control)
+    {
+        var row = new Grid
+        {
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var text = new StackPanel
+        {
+            Margin = new Thickness(0, 0, 20, 0)
+        };
+        text.Children.Add(new TextBlock
+        {
+            Text = title,
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38))
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = description,
+            FontSize = 12,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            Margin = new Thickness(0, 3, 0, 0)
+        });
+        Grid.SetColumn(text, 0);
+        row.Children.Add(text);
+
+        var presenter = new ContentControl
+        {
+            Content = control,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(presenter, 1);
+        row.Children.Add(presenter);
+        return row;
+    }
+
+    private void ApplyDefaultSettings()
+    {
+        SearchText = "";
+        ShowSystemPorts = false;
+        RefreshIntervalSeconds = 5;
+        RememberWindowPlacement = true;
+        _settings.WindowLeft = null;
+        _settings.WindowTop = null;
+        _settings.WindowWidth = null;
+        _settings.WindowHeight = null;
+        _settings.IsMaximized = false;
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -661,4 +937,12 @@ internal sealed class PortEntryViewModel : INotifyPropertyChanged
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
+}
+
+internal sealed class SettingsDialogResult
+{
+    public bool Reset { get; init; }
+    public bool ShowSystemPorts { get; init; }
+    public int RefreshIntervalSeconds { get; init; } = 5;
+    public bool RememberWindowPlacement { get; init; } = true;
 }
