@@ -12,6 +12,7 @@ using Forms = System.Windows.Forms;
 using MaterialDesignThemes.Wpf;
 using PortLens.Models;
 using PortLens.Services;
+using PortLensMaterial.Settings;
 using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -23,9 +24,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly PortScanner _scanner = new();
     private readonly DispatcherTimer _timer = new();
+    private readonly DispatcherTimer _settingsSaveTimer = new();
+    private readonly DesktopSettingsStore _settingsStore = new();
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
+    private DesktopSettings _settings = new();
+    private bool _isApplyingSettings;
     private bool _isRefreshing;
     private bool _showSystemPorts;
     private string _searchText = "";
@@ -36,6 +41,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     public MainWindow()
     {
         InitializeComponent();
+        _settings = _settingsStore.Load();
+        ApplyPersistedSettings();
         DataContext = this;
 
         FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
@@ -43,11 +50,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         _notifyIcon = BuildTrayIcon();
 
+        _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
+        _settingsSaveTimer.Tick += (_, _) =>
+        {
+            _settingsSaveTimer.Stop();
+            SaveSettings();
+        };
+
         _timer.Interval = TimeSpan.FromSeconds(5);
         _timer.Tick += (_, _) => _ = RefreshPortsAsync();
         _timer.Start();
 
         Loaded += async (_, _) => await RefreshPortsAsync();
+        LocationChanged += (_, _) => ScheduleSettingsSave();
+        SizeChanged += (_, _) => ScheduleSettingsSave();
+        StateChanged += (_, _) => ScheduleSettingsSave();
         Closing += MainWindow_Closing;
     }
 
@@ -67,6 +84,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             OnPropertyChanged(nameof(SearchText));
             FilteredEntries.Refresh();
             OnPropertyChanged(nameof(IsEmpty));
+            ScheduleSettingsSave();
         }
     }
 
@@ -82,6 +100,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _showSystemPorts = value;
             OnPropertyChanged(nameof(ShowSystemPorts));
+            ScheduleSettingsSave();
             _ = RefreshPortsAsync();
         }
     }
@@ -170,6 +189,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Exit", null, (_, _) =>
         {
+            SaveSettings();
             _notifyIcon.Visible = false;
             _notifyIcon.Dispose();
             Closing -= MainWindow_Closing;
@@ -203,6 +223,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
+        SaveSettings();
         e.Cancel = true;
         Hide();
     }
@@ -212,6 +233,102 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Show();
         WindowState = WindowState.Normal;
         Activate();
+    }
+
+    private void ApplyPersistedSettings()
+    {
+        _isApplyingSettings = true;
+        try
+        {
+            _searchText = _settings.SearchText ?? "";
+            _showSystemPorts = _settings.ShowSystemPorts;
+
+            if (IsUsableWindowPlacement(_settings))
+            {
+                WindowStartupLocation = WindowStartupLocation.Manual;
+                Left = _settings.WindowLeft!.Value;
+                Top = _settings.WindowTop!.Value;
+                Width = Math.Max(MinWidth, _settings.WindowWidth!.Value);
+                Height = Math.Max(MinHeight, _settings.WindowHeight!.Value);
+            }
+
+            if (_settings.IsMaximized)
+            {
+                WindowState = WindowState.Maximized;
+            }
+        }
+        finally
+        {
+            _isApplyingSettings = false;
+        }
+    }
+
+    private static bool IsUsableWindowPlacement(DesktopSettings settings)
+    {
+        if (settings.WindowLeft is not { } left ||
+            settings.WindowTop is not { } top ||
+            settings.WindowWidth is not { } width ||
+            settings.WindowHeight is not { } height)
+        {
+            return false;
+        }
+
+        if (!double.IsFinite(left) ||
+            !double.IsFinite(top) ||
+            !double.IsFinite(width) ||
+            !double.IsFinite(height) ||
+            width < 320 ||
+            height < 240)
+        {
+            return false;
+        }
+
+        var right = left + width;
+        var bottom = top + height;
+        return right > SystemParameters.VirtualScreenLeft &&
+               bottom > SystemParameters.VirtualScreenTop &&
+               left < SystemParameters.VirtualScreenLeft + SystemParameters.VirtualScreenWidth &&
+               top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight;
+    }
+
+    private void ScheduleSettingsSave()
+    {
+        if (_isApplyingSettings)
+        {
+            return;
+        }
+
+        _settingsSaveTimer.Stop();
+        _settingsSaveTimer.Start();
+    }
+
+    private void SaveSettings()
+    {
+        if (_isApplyingSettings)
+        {
+            return;
+        }
+
+        _settings.SearchText = SearchText;
+        _settings.ShowSystemPorts = ShowSystemPorts;
+        _settings.IsMaximized = WindowState == WindowState.Maximized;
+
+        if (WindowState == WindowState.Normal)
+        {
+            _settings.WindowLeft = Left;
+            _settings.WindowTop = Top;
+            _settings.WindowWidth = Width;
+            _settings.WindowHeight = Height;
+        }
+
+        try
+        {
+            _settingsStore.Save(_settings);
+        }
+        catch
+        {
+            StatusText = "Settings save failed.";
+        }
     }
 
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
