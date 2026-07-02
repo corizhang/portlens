@@ -2,7 +2,7 @@ namespace PortLens.Desktop.Settings;
 
 internal sealed class DesktopSettings
 {
-    public static readonly string[] DefaultEnabledFrameworks = ["Vite", "Next.js", "Nuxt", "Django", "FastAPI", "Spring", ".NET", "Docker", "WSL"];
+    public static readonly string[] DefaultEnabledFrameworks = ["Vite", "Next.js", "Nuxt", "Django", "FastAPI", "Spring", ".NET", "Go", "Docker", "WSL"];
 
     public string SearchText { get; set; } = "";
     public bool ShowSystemPorts { get; set; }

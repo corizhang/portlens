@@ -631,36 +631,49 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var frameworkToggles = BuildFrameworkRulesSection();
         var blacklist = BuildBlacklistSection();
 
-        var tabs = new System.Windows.Controls.TabControl
+        var tabHost = new Grid
         {
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignTabControl"),
             MinHeight = 360
         };
-        tabs.Items.Add(new TabItem
+        tabHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        tabHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+
+        var tabButtons = new StackPanel
         {
-            Header = "General",
-            Content = new ScrollViewer
-            {
-                Content = general,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            }
-        });
-        tabs.Items.Add(new TabItem
+            Orientation = WpfOrientation.Horizontal,
+            Margin = new Thickness(0, 0, 0, 14)
+        };
+        var contentHost = new ContentControl();
+        var generalPage = new ScrollViewer
         {
-            Header = "Rules",
-            Content = new ScrollViewer
-            {
-                Content = frameworkToggles.View,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-            }
-        });
-        tabs.Items.Add(new TabItem
+            Content = general,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        var rulesPage = new ScrollViewer
         {
-            Header = $"Blacklist ({_excludedPorts.Count})",
-            Content = blacklist.View
-        });
-        Grid.SetRow(tabs, 1);
-        shell.Children.Add(tabs);
+            Content = frameworkToggles.View,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
+        var blacklistPage = blacklist.View;
+
+        var generalTab = BuildSettingsTabButton("General");
+        var rulesTab = BuildSettingsTabButton("Rules");
+        var blacklistTab = BuildSettingsTabButton($"Blacklist ({_excludedPorts.Count})");
+        WpfButton[] tabs = [generalTab, rulesTab, blacklistTab];
+        generalTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, generalTab, generalPage);
+        rulesTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, rulesTab, rulesPage);
+        blacklistTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, blacklistTab, blacklistPage);
+        tabButtons.Children.Add(generalTab);
+        tabButtons.Children.Add(rulesTab);
+        tabButtons.Children.Add(blacklistTab);
+        Grid.SetRow(tabButtons, 0);
+        tabHost.Children.Add(tabButtons);
+        Grid.SetRow(contentHost, 1);
+        tabHost.Children.Add(contentHost);
+        SelectSettingsTab(contentHost, tabs, generalTab, generalPage);
+
+        Grid.SetRow(tabHost, 1);
+        shell.Children.Add(tabHost);
 
         var actions = new Grid();
         actions.Margin = new Thickness(0, 18, 0, 0);
@@ -726,6 +739,32 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         shell.Children.Add(actions);
 
         return shell;
+    }
+
+    private static WpfButton BuildSettingsTabButton(string label)
+    {
+        return new WpfButton
+        {
+            Content = label,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+            MinWidth = 112,
+            Height = 34,
+            Margin = new Thickness(0, 0, 8, 0),
+            Padding = new Thickness(12, 0, 12, 0)
+        };
+    }
+
+    private static void SelectSettingsTab(ContentControl contentHost, IEnumerable<WpfButton> tabs, WpfButton selected, object content)
+    {
+        foreach (var tab in tabs)
+        {
+            tab.Background = System.Windows.Media.Brushes.Transparent;
+            tab.Foreground = new SolidColorBrush(WpfColor.FromRgb(103, 58, 183));
+        }
+
+        selected.Background = new SolidColorBrush(WpfColor.FromRgb(237, 230, 246));
+        selected.Foreground = new SolidColorBrush(WpfColor.FromRgb(54, 30, 97));
+        contentHost.Content = content;
     }
 
     private static Grid BuildSettingRow(string title, string description, UIElement control)
@@ -1147,11 +1186,25 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks)
     {
         var valid = DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var normalized = frameworks?
+        var provided = frameworks?.ToArray();
+        var normalized = provided?
             .Where(framework => valid.Contains(framework))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        return normalized ?? DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (normalized is null)
+        {
+            return valid;
+        }
+
+        var previousDefault = valid.Where(framework => !framework.Equals("Go", StringComparison.OrdinalIgnoreCase)).ToArray();
+        var wasPreviousDefault = normalized.Count == previousDefault.Length &&
+            previousDefault.All(framework => normalized.Contains(framework));
+        if (wasPreviousDefault)
+        {
+            normalized.Add("Go");
+        }
+
+        return normalized;
     }
 
     private SettingsSection BuildFrameworkRulesSection()

@@ -318,6 +318,7 @@ internal sealed class ProcessInspector
         if (ContainsAny(text, "fastapi", "uvicorn", "hypercorn")) return "FastAPI";
         if (ContainsAny(text, "spring-boot", "springframework", "org.springframework.boot")) return "Spring";
         if (ContainsAny(text, "dotnet", "kestrel", "aspnetcore")) return ".NET";
+        if (ContainsAny(text, "go run", "air.toml", "\\air.exe", "/air", "gin-gonic", "fiber", "echo/v4", "go-build", "\\go.exe", "/go ")) return "Go";
         if (ContainsAny(text, "docker-proxy", "com.docker", "docker desktop", "dockerd")) return "Docker";
         if (ContainsAny(text, "wslhost", "wslservice", "wsl.exe", "\\wsl$")) return "WSL";
         return "";
