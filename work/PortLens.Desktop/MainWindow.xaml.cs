@@ -486,16 +486,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private FrameworkElement BuildSettingsDialog()
     {
-        var panel = new StackPanel
+        var shell = new Grid
         {
-            Width = 420,
+            Width = 560,
+            MaxHeight = 680,
             Margin = new Thickness(24)
         };
+        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
+        shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
+        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
 
         var header = new StackPanel
         {
             Orientation = WpfOrientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 18)
+            Margin = new Thickness(0, 0, 0, 16)
         };
         header.Children.Add(new PackIcon
         {
@@ -513,7 +517,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Foreground = new SolidColorBrush(WpfColor.FromRgb(34, 27, 24)),
             VerticalAlignment = VerticalAlignment.Center
         });
-        panel.Children.Add(header);
+        Grid.SetRow(header, 0);
+        shell.Children.Add(header);
+
+        var general = new StackPanel
+        {
+            Margin = new Thickness(0, 18, 0, 0)
+        };
 
         var showSystemPorts = new ToggleButton
         {
@@ -521,7 +531,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
             VerticalAlignment = VerticalAlignment.Center
         };
-        panel.Children.Add(BuildSettingRow("System ports", "Include non-development listening ports.", showSystemPorts));
+        general.Children.Add(BuildSettingRow("System ports", "Include non-development listening ports.", showSystemPorts));
 
         var refreshInterval = new System.Windows.Controls.ComboBox
         {
@@ -545,7 +555,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             30 => 3,
             _ => 1
         };
-        panel.Children.Add(BuildSettingRow("Refresh interval", "How often PortLens scans in the background.", refreshInterval));
+        general.Children.Add(BuildSettingRow("Refresh interval", "How often PortLens scans in the background.", refreshInterval));
 
         var rememberPlacement = new ToggleButton
         {
@@ -553,7 +563,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
             VerticalAlignment = VerticalAlignment.Center
         };
-        panel.Children.Add(BuildSettingRow("Window placement", "Restore size and position on launch.", rememberPlacement));
+        general.Children.Add(BuildSettingRow("Window placement", "Restore size and position on launch.", rememberPlacement));
 
         var closeToTray = new ToggleButton
         {
@@ -561,23 +571,51 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
             VerticalAlignment = VerticalAlignment.Center
         };
-        panel.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
-
-        var frameworkToggles = BuildFrameworkRulesSection();
-        panel.Children.Add(frameworkToggles.View);
-
-        var blacklist = BuildBlacklistSection();
-        panel.Children.Add(blacklist.View);
-
-        panel.Children.Add(new TextBlock
+        general.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
+        general.Children.Add(new TextBlock
         {
             Text = "PortLens - local development port monitor",
             Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
             FontSize = 12,
-            Margin = new Thickness(0, 16, 0, 18)
+            Margin = new Thickness(0, 18, 0, 0)
         });
 
+        var frameworkToggles = BuildFrameworkRulesSection();
+        var blacklist = BuildBlacklistSection();
+
+        var tabs = new System.Windows.Controls.TabControl
+        {
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignTabControl"),
+            MinHeight = 360
+        };
+        tabs.Items.Add(new TabItem
+        {
+            Header = "General",
+            Content = new ScrollViewer
+            {
+                Content = general,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            }
+        });
+        tabs.Items.Add(new TabItem
+        {
+            Header = "Rules",
+            Content = new ScrollViewer
+            {
+                Content = frameworkToggles.View,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            }
+        });
+        tabs.Items.Add(new TabItem
+        {
+            Header = $"Blacklist ({_excludedPorts.Count})",
+            Content = blacklist.View
+        });
+        Grid.SetRow(tabs, 1);
+        shell.Children.Add(tabs);
+
         var actions = new Grid();
+        actions.Margin = new Thickness(0, 18, 0, 0);
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
         actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -635,14 +673,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         rightActions.Children.Add(save);
         Grid.SetColumn(rightActions, 1);
         actions.Children.Add(rightActions);
-        panel.Children.Add(actions);
+        Grid.SetRow(actions, 2);
+        shell.Children.Add(actions);
 
-        return new ScrollViewer
-        {
-            Content = panel,
-            MaxHeight = 640,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
+        return shell;
     }
 
     private static Grid BuildSettingRow(string title, string description, UIElement control)
@@ -1085,6 +1119,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
             Margin = new Thickness(0, 0, 0, 8)
         });
+        panel.Children.Add(new TextBlock
+        {
+            Text = "These rules decide which recognized services appear when System ports is off.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            FontSize = 12,
+            Margin = new Thickness(0, 0, 0, 16)
+        });
 
         var grid = new UniformGrid
         {
@@ -1111,21 +1153,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private BlacklistSection BuildBlacklistSection()
     {
         var draft = _excludedPorts.Order().ToList();
-        var panel = new StackPanel
+        var panel = new DockPanel
         {
-            Margin = new Thickness(0, 4, 0, 14)
+            Margin = new Thickness(0, 10, 0, 0),
+            LastChildFill = true
         };
-        panel.Children.Add(new TextBlock
+        var heading = new StackPanel
+        {
+            Margin = new Thickness(0, 0, 0, 12)
+        };
+        heading.Children.Add(new TextBlock
         {
             Text = "Port blacklist",
             FontSize = 14,
             FontWeight = FontWeights.SemiBold,
             Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
-            Margin = new Thickness(0, 0, 0, 8)
+            Margin = new Thickness(0, 0, 0, 4)
         });
+        heading.Children.Add(new TextBlock
+        {
+            Text = "Blacklisted ports stay hidden even when System ports is enabled.",
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            FontSize = 12
+        });
+        DockPanel.SetDock(heading, Dock.Top);
+        panel.Children.Add(heading);
 
         var list = new StackPanel();
-        panel.Children.Add(list);
+        panel.Children.Add(new ScrollViewer
+        {
+            Content = list,
+            MaxHeight = 280,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        });
 
         void Render()
         {
