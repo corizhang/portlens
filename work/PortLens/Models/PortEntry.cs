@@ -13,6 +13,7 @@ internal sealed class PortEntry
     public string? WorkingDirectory { get; set; }
     public string? ProjectName { get; set; }
     public string? Framework { get; set; }
+    public bool IsRecognizedDevelopmentService { get; set; }
     public DateTimeOffset? StartedAt { get; set; }
     public TimeSpan? Uptime { get; set; }
     public double? CpuPercent { get; set; }
