@@ -16,7 +16,9 @@ public sealed class PortScanner
             .ThenBy(row => row.ProcessId)
             .ToList();
 
-        _inspector.PreloadProcessDetails(rows.Select(row => row.ProcessId));
+        var liveProcessIds = rows.Select(row => row.ProcessId).Distinct().ToArray();
+        _inspector.PruneCaches(liveProcessIds);
+        _inspector.PreloadProcessDetails(liveProcessIds);
 
         var entries = new List<PortEntry>();
         foreach (var row in rows)

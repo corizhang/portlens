@@ -12,13 +12,13 @@ using Forms = System.Windows.Forms;
 using MaterialDesignThemes.Wpf;
 using PortLens.Models;
 using PortLens.Services;
-using PortLensMaterial.Settings;
+using PortLens.Desktop.Settings;
 using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
 using WpfOrientation = System.Windows.Controls.Orientation;
 
-namespace PortLensMaterial;
+namespace PortLens.Desktop;
 
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
@@ -29,6 +29,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
+    private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     private DesktopSettings _settings = new();
     private bool _isApplyingSettings;
     private bool _isRefreshing;
@@ -59,14 +60,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             SaveSettings();
         };
 
-        _timer.Interval = TimeSpan.FromSeconds(RefreshIntervalSeconds);
+        UpdateScanTimerInterval();
         _timer.Tick += (_, _) => _ = RefreshPortsAsync();
         _timer.Start();
 
         Loaded += async (_, _) => await RefreshPortsAsync();
         LocationChanged += (_, _) => ScheduleSettingsSave();
         SizeChanged += (_, _) => ScheduleSettingsSave();
-        StateChanged += (_, _) => ScheduleSettingsSave();
+        StateChanged += (_, _) =>
+        {
+            ScheduleSettingsSave();
+            UpdateScanTimerInterval();
+        };
+        IsVisibleChanged += (_, _) => UpdateScanTimerInterval();
         Closing += MainWindow_Closing;
     }
 
@@ -119,7 +125,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             }
 
             _refreshIntervalSeconds = normalized;
-            _timer.Interval = TimeSpan.FromSeconds(_refreshIntervalSeconds);
+            UpdateScanTimerInterval();
             OnPropertyChanged(nameof(RefreshIntervalSeconds));
             ScheduleSettingsSave();
         }
@@ -235,7 +241,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         var icon = new Forms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "PortLens Material",
+            Text = "PortLens",
             ContextMenuStrip = menu,
             Visible = true
         };
@@ -268,6 +274,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         Show();
         WindowState = WindowState.Normal;
+        UpdateScanTimerInterval();
         Activate();
     }
 
@@ -388,6 +395,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
     }
 
+    private void UpdateScanTimerInterval()
+    {
+        var foregroundInterval = TimeSpan.FromSeconds(RefreshIntervalSeconds);
+        _timer.Interval = IsVisible && WindowState != WindowState.Minimized
+            ? foregroundInterval
+            : Max(foregroundInterval, BackgroundRefreshInterval);
+    }
+
+    private static TimeSpan Max(TimeSpan first, TimeSpan second)
+    {
+        return first >= second ? first : second;
+    }
+
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await RefreshPortsAsync();
@@ -493,7 +513,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         panel.Children.Add(new TextBlock
         {
-            Text = "PortLens Material - local development port monitor",
+            Text = "PortLens - local development port monitor",
             Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
             FontSize = 12,
             Margin = new Thickness(0, 16, 0, 18)
@@ -631,11 +651,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void MinimizeButton_Click(object sender, RoutedEventArgs e)
     {
         WindowState = WindowState.Minimized;
+        UpdateScanTimerInterval();
     }
 
     private void HideButton_Click(object sender, RoutedEventArgs e)
     {
         Hide();
+        UpdateScanTimerInterval();
     }
 
     private void OpenButton_Click(object sender, RoutedEventArgs e)

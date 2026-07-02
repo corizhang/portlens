@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace PortLensMaterial;
+namespace PortLens.Desktop;
 
 public partial class App : System.Windows.Application
 {

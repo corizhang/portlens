@@ -11,6 +11,17 @@ internal sealed class ProcessInspector
     private readonly Dictionary<int, CachedProcessInfo> _basicDetailsCache = new();
     private readonly Lock _cacheLock = new();
 
+    public void PruneCaches(IEnumerable<int> liveProcessIds)
+    {
+        var live = liveProcessIds.ToHashSet();
+        lock (_cacheLock)
+        {
+            RemoveDeadKeys(_lastSamples, live);
+            RemoveDeadKeys(_detailsCache, live);
+            RemoveDeadKeys(_basicDetailsCache, live);
+        }
+    }
+
     public void PreloadProcessDetails(IEnumerable<int> processIds)
     {
         var missingIds = processIds
@@ -81,7 +92,10 @@ internal sealed class ProcessInspector
         var cached = GetCachedDetails(entry.ProcessId, allowStale: false);
         if (cached is null)
         {
-            cached = ReadProcessDetails(entry.ProcessId, readExecutablePath: true);
+            var basic = GetCachedBasicDetails(entry.ProcessId);
+            cached = basic is null
+                ? ReadProcessDetails(entry.ProcessId, readExecutablePath: true)
+                : ReadProcessDetails(entry.ProcessId, readExecutablePath: true, basic.CommandLine);
             lock (_cacheLock)
             {
                 _detailsCache[entry.ProcessId] = cached;
@@ -134,9 +148,9 @@ internal sealed class ProcessInspector
         return Math.Max(0, Math.Round(cpuMs / elapsedMs / Environment.ProcessorCount * 100, 1));
     }
 
-    private static CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath)
+    private static CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null)
     {
-        var commandLine = ProcessCommandLineReader.Read(processId);
+        var commandLine = cachedCommandLine ?? ProcessCommandLineReader.Read(processId);
         var executablePath = Safe(() =>
         {
             using var process = Process.GetProcessById(processId);
@@ -324,6 +338,14 @@ internal sealed class ProcessInspector
     }
 
     private static long ToMb(long? bytes) => bytes.GetValueOrDefault() / 1024 / 1024;
+
+    private static void RemoveDeadKeys<TValue>(Dictionary<int, TValue> cache, HashSet<int> liveProcessIds)
+    {
+        foreach (var processId in cache.Keys.Where(processId => !liveProcessIds.Contains(processId)).ToList())
+        {
+            cache.Remove(processId);
+        }
+    }
 
     private static T? Safe<T>(Func<T?> action)
     {

@@ -1,4 +1,4 @@
-namespace PortLensMaterial.Settings;
+namespace PortLens.Desktop.Settings;
 
 internal sealed class DesktopSettings
 {

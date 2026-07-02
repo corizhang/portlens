@@ -6,8 +6,8 @@
     <UseWindowsForms>true</UseWindowsForms>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <AssemblyName>PortLensMaterial</AssemblyName>
-    <RootNamespace>PortLensMaterial</RootNamespace>
+    <AssemblyName>PortLens</AssemblyName>
+    <RootNamespace>PortLens.Desktop</RootNamespace>
     <ApplicationIcon>Assets\portlens-icon.ico</ApplicationIcon>
   </PropertyGroup>
 

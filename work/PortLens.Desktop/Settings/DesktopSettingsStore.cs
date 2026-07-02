@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace PortLensMaterial.Settings;
+namespace PortLens.Desktop.Settings;
 
 internal sealed class DesktopSettingsStore
 {
