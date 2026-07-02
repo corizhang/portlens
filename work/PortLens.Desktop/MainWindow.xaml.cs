@@ -38,6 +38,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private int _refreshIntervalSeconds = 5;
     private bool _rememberWindowPlacement = true;
     private bool _closeToTray = true;
+    private bool _groupByProject = true;
     private bool _isExiting;
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
@@ -55,6 +56,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
         FilteredEntries.Filter = item => item is PortEntryViewModel entry && Matches(entry);
+        ApplyGrouping();
 
         _notifyIcon = BuildTrayIcon();
 
@@ -164,6 +166,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
             _closeToTray = value;
             OnPropertyChanged(nameof(CloseToTray));
+            ScheduleSettingsSave();
+        }
+    }
+
+    public bool GroupByProject
+    {
+        get => _groupByProject;
+        set
+        {
+            if (_groupByProject == value)
+            {
+                return;
+            }
+
+            _groupByProject = value;
+            ApplyGrouping();
+            OnPropertyChanged(nameof(GroupByProject));
             ScheduleSettingsSave();
         }
     }
@@ -320,6 +339,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _refreshIntervalSeconds = NormalizeRefreshInterval(_settings.RefreshIntervalSeconds);
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
             _closeToTray = _settings.CloseToTray;
+            _groupByProject = _settings.GroupByProject;
             _excludedPorts = NormalizeExcludedPorts(_settings.ExcludedPorts);
             _enabledFrameworks = NormalizeEnabledFrameworks(_settings.EnabledFrameworks);
 
@@ -394,6 +414,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settings.RefreshIntervalSeconds = RefreshIntervalSeconds;
         _settings.RememberWindowPlacement = RememberWindowPlacement;
         _settings.CloseToTray = CloseToTray;
+        _settings.GroupByProject = GroupByProject;
         _settings.ExcludedPorts = _excludedPorts.Order().ToList();
         _settings.EnabledFrameworks = _enabledFrameworks
             .OrderBy(framework => Array.IndexOf(DesktopSettings.DefaultEnabledFrameworks, framework))
@@ -448,6 +469,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return first >= second ? first : second;
     }
 
+    private void ApplyGrouping()
+    {
+        if (FilteredEntries is null)
+        {
+            return;
+        }
+
+        FilteredEntries.GroupDescriptions.Clear();
+        if (GroupByProject)
+        {
+            FilteredEntries.GroupDescriptions.Add(new PropertyGroupDescription(nameof(PortEntryViewModel.ProjectGroupKey)));
+        }
+
+        FilteredEntries.Refresh();
+        OnPropertyChanged(nameof(IsEmpty));
+    }
+
     private async void RefreshButton_Click(object sender, RoutedEventArgs e)
     {
         await RefreshPortsAsync();
@@ -478,6 +516,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
         RememberWindowPlacement = dialogResult.RememberWindowPlacement;
         CloseToTray = dialogResult.CloseToTray;
+        GroupByProject = dialogResult.GroupByProject;
         _excludedPorts = NormalizeExcludedPorts(dialogResult.ExcludedPorts);
         _enabledFrameworks = NormalizeEnabledFrameworks(dialogResult.EnabledFrameworks);
         SaveSettings();
@@ -572,6 +611,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             VerticalAlignment = VerticalAlignment.Center
         };
         general.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
+
+        var groupByProject = new ToggleButton
+        {
+            IsChecked = GroupByProject,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        general.Children.Add(BuildSettingRow("Group by project", "Group sibling services by inferred project root.", groupByProject));
+
         general.Children.Add(new TextBlock
         {
             Text = "PortLens - local development port monitor",
@@ -665,6 +713,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 RefreshIntervalSeconds = selectedSeconds,
                 RememberWindowPlacement = rememberPlacement.IsChecked == true,
                 CloseToTray = closeToTray.IsChecked == true,
+                GroupByProject = groupByProject.IsChecked == true,
                 EnabledFrameworks = frameworkToggles.GetEnabledFrameworks(),
                 ExcludedPorts = blacklist.GetExcludedPorts()
             };
@@ -726,6 +775,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshIntervalSeconds = 5;
         RememberWindowPlacement = true;
         CloseToTray = true;
+        GroupByProject = true;
         _excludedPorts.Clear();
         _enabledFrameworks = NormalizeEnabledFrameworks(DesktopSettings.DefaultEnabledFrameworks);
         _settings.WindowLeft = null;
@@ -1249,7 +1299,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return true;
         }
 
-        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.Framework, entry.CommandText, entry.DirectoryText);
+        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.ProjectGroupTitle, entry.ProjectGroupSubtitle, entry.Framework, entry.CommandText, entry.DirectoryText);
         return haystack.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -1299,6 +1349,10 @@ internal sealed class PortEntryViewModel : INotifyPropertyChanged
     public string? WorkingDirectory => _entry.WorkingDirectory;
     public string? ExecutablePath => _entry.ExecutablePath;
     public string? ProcessDirectory => !string.IsNullOrWhiteSpace(_entry.ExecutablePath) ? Path.GetDirectoryName(_entry.ExecutablePath) : null;
+    public string? ProjectRootDirectory => ProjectRootResolver.Resolve(_entry.WorkingDirectory);
+    public string ProjectGroupKey => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
+    public string ProjectGroupTitle => ProjectRootResolver.DisplayName(ProjectRootDirectory ?? _entry.WorkingDirectory, DisplayName);
+    public string ProjectGroupSubtitle => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
     public string Url => _entry.Url;
     public string PortText => $":{_entry.LocalPort}";
     public string DisplayName => _entry.DisplayName;
@@ -1334,6 +1388,10 @@ internal sealed class PortEntryViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(WorkingDirectory));
         OnPropertyChanged(nameof(ExecutablePath));
         OnPropertyChanged(nameof(ProcessDirectory));
+        OnPropertyChanged(nameof(ProjectRootDirectory));
+        OnPropertyChanged(nameof(ProjectGroupKey));
+        OnPropertyChanged(nameof(ProjectGroupTitle));
+        OnPropertyChanged(nameof(ProjectGroupSubtitle));
         OnPropertyChanged(nameof(DisplayName));
         OnPropertyChanged(nameof(FrameworkText));
         OnPropertyChanged(nameof(UptimeText));
@@ -1377,6 +1435,7 @@ internal sealed class SettingsDialogResult
     public int RefreshIntervalSeconds { get; init; } = 5;
     public bool RememberWindowPlacement { get; init; } = true;
     public bool CloseToTray { get; init; } = true;
+    public bool GroupByProject { get; init; } = true;
     public IReadOnlyList<int> ExcludedPorts { get; init; } = [];
     public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
 }
@@ -1384,3 +1443,112 @@ internal sealed class SettingsDialogResult
 internal sealed record SettingsSection(FrameworkElement View, Func<IReadOnlyList<string>> GetEnabledFrameworks);
 
 internal sealed record BlacklistSection(FrameworkElement View, Func<IReadOnlyList<int>> GetExcludedPorts);
+
+internal static class ProjectRootResolver
+{
+    private static readonly HashSet<string> ChildProjectNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "api",
+        "app",
+        "backend",
+        "client",
+        "frontend",
+        "server",
+        "web"
+    };
+
+    private static readonly HashSet<string> WorkspaceContainerNames = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "apps",
+        "packages",
+        "services"
+    };
+
+    public static string? Resolve(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return directory;
+        }
+
+        var current = new DirectoryInfo(directory);
+        var markerRoot = FindMarkerRoot(current);
+        if (markerRoot is not null)
+        {
+            return markerRoot.FullName;
+        }
+
+        var parent = current.Parent;
+        if (parent is null)
+        {
+            return current.FullName;
+        }
+
+        if (ChildProjectNames.Contains(current.Name))
+        {
+            return parent.FullName;
+        }
+
+        if (WorkspaceContainerNames.Contains(parent.Name) && parent.Parent is not null)
+        {
+            return parent.Parent.FullName;
+        }
+
+        return current.FullName;
+    }
+
+    public static string DisplayName(string? directory, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return fallback;
+        }
+
+        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return string.IsNullOrWhiteSpace(name) ? fallback : name;
+    }
+
+    private static DirectoryInfo? FindMarkerRoot(DirectoryInfo start)
+    {
+        for (var current = start; current is not null; current = current.Parent)
+        {
+            if (HasRootMarker(current))
+            {
+                return current;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool HasRootMarker(DirectoryInfo directory)
+    {
+        try
+        {
+            return Directory.Exists(Path.Combine(directory.FullName, ".git"))
+                || File.Exists(Path.Combine(directory.FullName, "pnpm-workspace.yaml"))
+                || File.Exists(Path.Combine(directory.FullName, "turbo.json"))
+                || File.Exists(Path.Combine(directory.FullName, "nx.json"))
+                || File.Exists(Path.Combine(directory.FullName, "lerna.json"))
+                || File.Exists(Path.Combine(directory.FullName, "docker-compose.yml"))
+                || Directory.EnumerateFiles(directory.FullName, "*.sln").Any()
+                || PackageJsonHasWorkspaces(Path.Combine(directory.FullName, "package.json"));
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool PackageJsonHasWorkspaces(string path)
+    {
+        try
+        {
+            return File.Exists(path) && File.ReadAllText(path).Contains("\"workspaces\"", StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

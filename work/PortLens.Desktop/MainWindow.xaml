@@ -138,6 +138,60 @@
         <Grid Margin="24,8,24,8">
             <ScrollViewer VerticalScrollBarVisibility="Auto">
                 <ItemsControl ItemsSource="{Binding FilteredEntries}">
+                    <ItemsControl.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.ContainerStyle>
+                                <Style TargetType="{x:Type GroupItem}">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                <Expander IsExpanded="True"
+                                                          Style="{StaticResource MaterialDesignExpander}"
+                                                          BorderBrush="#E4DAD0"
+                                                          BorderThickness="0,0,0,1"
+                                                          Padding="0"
+                                                          Margin="0,0,0,2">
+                                                    <Expander.Header>
+                                                        <Grid Margin="4,10,6,10">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="*" />
+                                                                <ColumnDefinition Width="Auto" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <StackPanel Grid.Column="0">
+                                                                <TextBlock Text="{Binding Items[0].ProjectGroupTitle}"
+                                                                           FontSize="18"
+                                                                           FontWeight="SemiBold"
+                                                                           Foreground="#2C2622"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Items[0].ProjectGroupSubtitle}"
+                                                                           Foreground="#8A7F76"
+                                                                           FontSize="12"
+                                                                           Margin="0,3,20,0"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                            <StackPanel Grid.Column="1"
+                                                                        Orientation="Horizontal"
+                                                                        VerticalAlignment="Center">
+                                                                <materialDesign:PackIcon Kind="LanConnect"
+                                                                                         Width="15"
+                                                                                         Height="15"
+                                                                                         Foreground="#8A7F76"
+                                                                                         Margin="0,0,5,0" />
+                                                                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} ports}"
+                                                                           Foreground="#7C716A"
+                                                                           FontSize="13" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </Expander.Header>
+                                                    <ItemsPresenter />
+                                                </Expander>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </GroupStyle.ContainerStyle>
+                        </GroupStyle>
+                    </ItemsControl.GroupStyle>
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="Transparent" BorderBrush="#E4DAD0" BorderThickness="0,0,0,1" Padding="0" Margin="0">
