@@ -140,6 +140,17 @@
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <Border Background="Transparent" BorderBrush="#E4DAD0" BorderThickness="0,0,0,1" Padding="0" Margin="0">
+                                <Border.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Add port to blacklist"
+                                                  Click="BlacklistPortMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="EyeOffOutline" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Border.ContextMenu>
                                 <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                           Style="{StaticResource MaterialDesignExpander}"
                                           Padding="0">

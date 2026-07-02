@@ -38,6 +38,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _rememberWindowPlacement = true;
     private bool _closeToTray = true;
     private bool _isExiting;
+    private HashSet<int> _excludedPorts = new();
+    private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
     private string _searchText = "";
     private string _statusText = "Scanning...";
 
@@ -190,7 +192,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            var entries = await Task.Run(() => _scanner.Scan(showAll));
+            var options = new PortScanOptions
+            {
+                ShowAll = showAll,
+                ExcludedPorts = _excludedPorts.ToHashSet(),
+                EnabledFrameworks = _enabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
+            };
+            var entries = await Task.Run(() => _scanner.Scan(options));
             ApplyEntries(entries);
             StatusText = showAll
                 ? $"{_entries.Count} local listening ports - {DateTime.Now:HH:mm:ss}"
@@ -311,6 +319,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _refreshIntervalSeconds = NormalizeRefreshInterval(_settings.RefreshIntervalSeconds);
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
             _closeToTray = _settings.CloseToTray;
+            _excludedPorts = NormalizeExcludedPorts(_settings.ExcludedPorts);
+            _enabledFrameworks = NormalizeEnabledFrameworks(_settings.EnabledFrameworks);
 
             if (_settings.RememberWindowPlacement && IsUsableWindowPlacement(_settings))
             {
@@ -383,6 +393,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settings.RefreshIntervalSeconds = RefreshIntervalSeconds;
         _settings.RememberWindowPlacement = RememberWindowPlacement;
         _settings.CloseToTray = CloseToTray;
+        _settings.ExcludedPorts = _excludedPorts.Order().ToList();
+        _settings.EnabledFrameworks = _enabledFrameworks
+            .OrderBy(framework => Array.IndexOf(DesktopSettings.DefaultEnabledFrameworks, framework))
+            .ToList();
         _settings.IsMaximized = WindowState == WindowState.Maximized;
 
         if (!RememberWindowPlacement)
@@ -463,7 +477,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
         RememberWindowPlacement = dialogResult.RememberWindowPlacement;
         CloseToTray = dialogResult.CloseToTray;
+        _excludedPorts = NormalizeExcludedPorts(dialogResult.ExcludedPorts);
+        _enabledFrameworks = NormalizeEnabledFrameworks(dialogResult.EnabledFrameworks);
         SaveSettings();
+        _ = RefreshPortsAsync();
     }
 
     private FrameworkElement BuildSettingsDialog()
@@ -545,6 +562,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
         panel.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
 
+        var frameworkToggles = BuildFrameworkRulesSection();
+        panel.Children.Add(frameworkToggles.View);
+
+        var blacklist = BuildBlacklistSection();
+        panel.Children.Add(blacklist.View);
+
         panel.Children.Add(new TextBlock
         {
             Text = "PortLens - local development port monitor",
@@ -602,7 +625,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ShowSystemPorts = showSystemPorts.IsChecked == true,
                 RefreshIntervalSeconds = selectedSeconds,
                 RememberWindowPlacement = rememberPlacement.IsChecked == true,
-                CloseToTray = closeToTray.IsChecked == true
+                CloseToTray = closeToTray.IsChecked == true,
+                EnabledFrameworks = frameworkToggles.GetEnabledFrameworks(),
+                ExcludedPorts = blacklist.GetExcludedPorts()
             };
         };
         rightActions.Children.Add(cancel);
@@ -611,7 +636,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         actions.Children.Add(rightActions);
         panel.Children.Add(actions);
 
-        return panel;
+        return new ScrollViewer
+        {
+            Content = panel,
+            MaxHeight = 640,
+            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+        };
     }
 
     private static Grid BuildSettingRow(string title, string description, UIElement control)
@@ -661,6 +691,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RefreshIntervalSeconds = 5;
         RememberWindowPlacement = true;
         CloseToTray = true;
+        _excludedPorts.Clear();
+        _enabledFrameworks = NormalizeEnabledFrameworks(DesktopSettings.DefaultEnabledFrameworks);
         _settings.WindowLeft = null;
         _settings.WindowTop = null;
         _settings.WindowWidth = null;
@@ -780,6 +812,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    private void BlacklistPortMenuItem_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { Tag: PortEntryViewModel entry })
+        {
+            return;
+        }
+
+        _excludedPorts.Add(entry.LocalPort);
+        SaveSettings();
+        StatusText = $"Port {entry.LocalPort} added to blacklist.";
+        _ = RefreshPortsAsync();
+    }
+
     private static async Task<bool> ShowKillConfirmationAsync(PortEntryViewModel entry, int childProcessCount)
     {
         var panel = new StackPanel
@@ -896,6 +941,135 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private static PortEntryViewModel? GetEntry(object sender)
     {
         return sender is FrameworkElement { Tag: PortEntryViewModel entry } ? entry : null;
+    }
+
+    private static HashSet<int> NormalizeExcludedPorts(IEnumerable<int>? ports)
+    {
+        return ports?
+            .Where(port => port is > 0 and <= 65535)
+            .ToHashSet()
+            ?? new HashSet<int>();
+    }
+
+    private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks)
+    {
+        var valid = DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var normalized = frameworks?
+            .Where(framework => valid.Contains(framework))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return normalized ?? DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private SettingsSection BuildFrameworkRulesSection()
+    {
+        var toggles = new Dictionary<string, ToggleButton>(StringComparer.OrdinalIgnoreCase);
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(0, 10, 0, 14)
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Development rules",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        var grid = new UniformGrid
+        {
+            Columns = 3
+        };
+        foreach (var framework in DesktopSettings.DefaultEnabledFrameworks)
+        {
+            var checkBox = new System.Windows.Controls.CheckBox
+            {
+                Content = framework,
+                IsChecked = _enabledFrameworks.Contains(framework),
+                Margin = new Thickness(0, 0, 10, 8)
+            };
+            toggles[framework] = checkBox;
+            grid.Children.Add(checkBox);
+        }
+
+        panel.Children.Add(grid);
+        return new SettingsSection(
+            panel,
+            () => toggles.Where(pair => pair.Value.IsChecked == true).Select(pair => pair.Key).ToList());
+    }
+
+    private BlacklistSection BuildBlacklistSection()
+    {
+        var draft = _excludedPorts.Order().ToList();
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(0, 4, 0, 14)
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = "Port blacklist",
+            FontSize = 14,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
+            Margin = new Thickness(0, 0, 0, 8)
+        });
+
+        var list = new StackPanel();
+        panel.Children.Add(list);
+
+        void Render()
+        {
+            list.Children.Clear();
+            if (draft.Count == 0)
+            {
+                list.Children.Add(new TextBlock
+                {
+                    Text = "No hidden ports.",
+                    Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+                    FontSize = 12
+                });
+                return;
+            }
+
+            foreach (var port in draft.ToArray())
+            {
+                var row = new Grid
+                {
+                    Margin = new Thickness(0, 0, 0, 6)
+                };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                row.Children.Add(new TextBlock
+                {
+                    Text = $":{port}",
+                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
+                    FontWeight = FontWeights.SemiBold,
+                    Foreground = new SolidColorBrush(WpfColor.FromRgb(63, 123, 200)),
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+
+                var remove = new WpfButton
+                {
+                    Content = "Remove",
+                    Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+                    MinWidth = 76,
+                    Height = 28,
+                    Padding = new Thickness(8, 0, 8, 0)
+                };
+                remove.Click += (_, _) =>
+                {
+                    draft.Remove(port);
+                    Render();
+                };
+                Grid.SetColumn(remove, 1);
+                row.Children.Add(remove);
+                list.Children.Add(row);
+            }
+        }
+
+        Render();
+        return new BlacklistSection(panel, () => draft.ToList());
     }
 
     private bool Matches(PortEntryViewModel entry)
@@ -1029,4 +1203,10 @@ internal sealed class SettingsDialogResult
     public int RefreshIntervalSeconds { get; init; } = 5;
     public bool RememberWindowPlacement { get; init; } = true;
     public bool CloseToTray { get; init; } = true;
+    public IReadOnlyList<int> ExcludedPorts { get; init; } = [];
+    public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
 }
+
+internal sealed record SettingsSection(FrameworkElement View, Func<IReadOnlyList<string>> GetEnabledFrameworks);
+
+internal sealed record BlacklistSection(FrameworkElement View, Func<IReadOnlyList<int>> GetExcludedPorts);

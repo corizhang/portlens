@@ -8,8 +8,14 @@ public sealed class PortScanner
 
     public IReadOnlyList<PortEntry> Scan(bool showAll)
     {
+        return Scan(new PortScanOptions { ShowAll = showAll });
+    }
+
+    public IReadOnlyList<PortEntry> Scan(PortScanOptions options)
+    {
         var rows = NativeTcp.GetTcpListeners()
             .Where(row => IsLocalAddress(row.LocalAddress))
+            .Where(row => !options.ExcludedPorts.Contains(row.LocalPort))
             .GroupBy(row => new { row.Protocol, row.LocalAddress, row.LocalPort, row.ProcessId })
             .Select(group => group.First())
             .OrderBy(row => row.LocalPort)
@@ -33,7 +39,7 @@ public sealed class PortScanner
             };
 
             _inspector.EnrichBasic(entry);
-            if (!showAll && !entry.IsRecognizedDevelopmentService)
+            if (!options.ShowAll && !IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
             {
                 continue;
             }
@@ -56,4 +62,13 @@ public sealed class PortScanner
             || address.StartsWith("[::]", StringComparison.Ordinal);
     }
 
+    private static bool IsEnabledDevelopmentService(PortEntry entry, IReadOnlySet<string> enabledFrameworks)
+    {
+        if (!entry.IsRecognizedDevelopmentService || string.IsNullOrWhiteSpace(entry.Framework))
+        {
+            return false;
+        }
+
+        return enabledFrameworks.Contains(entry.Framework);
+    }
 }
