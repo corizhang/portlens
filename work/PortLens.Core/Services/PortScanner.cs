@@ -2,7 +2,7 @@ using PortLens.Models;
 
 namespace PortLens.Services;
 
-internal sealed class PortScanner
+public sealed class PortScanner
 {
     private readonly ProcessInspector _inspector = new();
 

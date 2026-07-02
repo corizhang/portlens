@@ -16,8 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Include="..\PortLens\Models\*.cs" Link="Models\%(Filename)%(Extension)" />
-    <Compile Include="..\PortLens\Services\*.cs" Link="Services\%(Filename)%(Extension)" />
+    <ProjectReference Include="..\PortLens.Core\PortLens.Core.csproj" />
   </ItemGroup>
 
   <ItemGroup>

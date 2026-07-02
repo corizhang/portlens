@@ -1,6 +1,6 @@
 namespace PortLens.Models;
 
-internal sealed class PortEntry
+public sealed class PortEntry
 {
     public string Protocol { get; init; } = "";
     public string LocalAddress { get; init; } = "";
