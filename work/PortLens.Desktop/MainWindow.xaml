@@ -37,6 +37,7 @@
     <materialDesign:DialogHost Identifier="RootDialog"
                                DialogTheme="Inherit"
                                CloseOnClickAway="False">
+    <Grid>
     <DockPanel LastChildFill="True">
         <Border DockPanel.Dock="Top"
                 Background="#F7F2EC"
@@ -142,11 +143,63 @@
                             <Border Background="Transparent" BorderBrush="#E4DAD0" BorderThickness="0,0,0,1" Padding="0" Margin="0">
                                 <Border.ContextMenu>
                                     <ContextMenu>
+                                        <MenuItem Header="Open URL"
+                                                  Click="OpenUrlMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="OpenInNew" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Copy URL"
+                                                  Click="CopyUrlMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Copy command line"
+                                                  Click="CopyCommandLineMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="ConsoleLine" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
+                                        <MenuItem Header="Open process directory"
+                                                  Click="OpenProcessDirectoryMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="ApplicationCogOutline" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Open project directory"
+                                                  Click="OpenProjectDirectoryMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Open in terminal"
+                                                  Click="OpenTerminalMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="Console" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <Separator />
                                         <MenuItem Header="Add port to blacklist"
                                                   Click="BlacklistPortMenuItem_Click"
                                                   Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
                                             <MenuItem.Icon>
                                                 <materialDesign:PackIcon Kind="EyeOffOutline" Width="16" Height="16" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                        <MenuItem Header="Kill process tree"
+                                                  Foreground="#B3261E"
+                                                  Click="KillProcessTreeMenuItem_Click"
+                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" />
                                             </MenuItem.Icon>
                                         </MenuItem>
                                     </ContextMenu>
@@ -287,5 +340,10 @@
             </StackPanel>
         </Grid>
     </DockPanel>
+    <materialDesign:Snackbar MessageQueue="{Binding SnackbarMessageQueue}"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Bottom"
+                             Margin="24,0,24,44" />
+    </Grid>
     </materialDesign:DialogHost>
 </Window>
