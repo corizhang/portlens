@@ -53,7 +53,27 @@
   - `work/PortLens.Desktop/PortLens.Desktop.csproj`
 
 ### 阶段 3：性能优化（中优先级）
-- **状态：** in_progress
+- **状态：** complete
+- **开始时间：** 2026-07-03
+- **完成时间：** 2026-07-03
+- 执行的操作：
+  - 优化 `ProcessCommandLineReader.ReadMany()`：CIM 查询按 PID 过滤，避免拉取全部进程
+  - 为空 PID 集合增加短路返回
+  - 为 `PortScanner.Scan`、`ProcessInspector` 公共方法添加 `CancellationToken` 参数
+  - 为 `ProcessCommandLineReader` 注册取消回调，结束 PowerShell 子进程
+  - 在 `MainWindowViewModel` 中实现搜索防抖（150ms）和后台匹配计算
+  - 为 `PortEntry` 和 `PortEntryViewModel` 增加 `Key` 属性以支持预计算匹配
+  - `RefreshAsync` 使用 `CancellationTokenSource` 取消重叠扫描
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `powershell.exe ./scripts/publish.ps1` 验证发布
+  - 验证发布后的 `PortLens.exe` 可正常启动
+- 创建/修改的文件：
+  - `work/PortLens.Core/Models/PortEntry.cs`
+  - `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Core/Services/PortScanner.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
 
 ### 阶段 4：可维护性与质量（中优先级）
 - **状态：** pending
@@ -83,11 +103,11 @@
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 3：性能优化 |
-| 我要去哪里？ | 阶段 3-7：优化、测试、CI/CD、功能补充、验证交付 |
+| 我在哪里？ | 阶段 4：可维护性与质量 |
+| 我要去哪里？ | 阶段 4-7：可维护性、测试、CI/CD、功能补充、验证交付 |
 | 目标是什么？ | 系统性地优化 PortLens 的代码结构、性能、可维护性和用户体验 |
 | 我学到了什么？ | 见 findings.md |
-| 我做了什么？ | 已完成阶段 1、阶段 2，并修复了发布 exe 启动问题 |
+| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3 |
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*

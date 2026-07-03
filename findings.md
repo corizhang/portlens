@@ -109,12 +109,34 @@
 | `ServiceProvider` 与 `IServiceProvider` 转换错误 | `MainWindow` 构造函数改为 `IServiceProvider`，注册也改为 `AddSingleton<MainWindow>` |
 | 发布 exe 双击无反应 | `MainWindowViewModel` 改为在 `ServiceRegistration` 中手动注册，`ShowSnackbarAsync` 改为 internal，避免 DI 无法解析 `Func<string, Task>` |
 
+## 阶段 3 结果
+
+- 优化了 `ProcessCommandLineReader.ReadMany()`：
+  - CIM 查询改为通过 `-Filter` 按 PID 过滤，避免拉取全部 `Win32_Process`。
+  - 为空集合增加短路返回。
+- 为长时间操作添加了 `CancellationToken` 支持：
+  - `PortScanner.Scan` 接受 `CancellationToken` 并在关键点抛出取消。
+  - `ProcessInspector.PreloadProcessDetails` / `EnrichBasic` / `EnrichDetails` 传播 `CancellationToken`。
+  - `ProcessCommandLineReader.Read` / `ReadMany` 注册取消回调以结束 PowerShell 子进程。
+- 在 `MainWindowViewModel` 中实现搜索防抖与后台过滤：
+  - 搜索文本变化时启动 150ms 防抖计时器。
+  - 计时器触发后在后台线程计算匹配项的 key 集合，再刷新 `CollectionView`。
+  - 为 `PortEntry` 和 `PortEntryViewModel` 增加稳定的 `Key` 属性。
+- `MainWindowViewModel.RefreshAsync` 使用 `CancellationTokenSource` 取消上一次的刷新，避免重叠扫描。
+- 验证：
+  - `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+  - `powershell.exe ./scripts/publish.ps1` 成功发布到 `outputs/PortLensMaterial`。
+  - 发布后的 `PortLens.exe` 可正常启动。
+
 ## 资源
 
 - [PortLens.Core 项目文件](work/PortLens.Core/PortLens.Core.csproj)
 - [PortLens.Desktop 项目文件](work/PortLens.Desktop/PortLens.Desktop.csproj)
+- [ProcessCommandLineReader.cs](work/PortLens.Core/Services/ProcessCommandLineReader.cs)
 - [ProcessInspector.cs](work/PortLens.Core/Services/ProcessInspector.cs)
-- [MainWindow.xaml.cs](work/PortLens.Desktop/MainWindow.xaml.cs)
+- [PortScanner.cs](work/PortLens.Core/Services/PortScanner.cs)
+- [MainWindowViewModel.cs](work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs)
+- [PortEntry.cs](work/PortLens.Core/Models/PortEntry.cs)
 - [publish.ps1](scripts/publish.ps1)
 
 ## 视觉/浏览器发现

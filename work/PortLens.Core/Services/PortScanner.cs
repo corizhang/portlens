@@ -6,13 +6,14 @@ public sealed class PortScanner
 {
     private readonly ProcessInspector _inspector = new();
 
-    public IReadOnlyList<PortEntry> Scan(bool showAll)
+    public IReadOnlyList<PortEntry> Scan(bool showAll, CancellationToken cancellationToken = default)
     {
-        return Scan(new PortScanOptions { ShowAll = showAll });
+        return Scan(new PortScanOptions { ShowAll = showAll }, cancellationToken);
     }
 
-    public IReadOnlyList<PortEntry> Scan(PortScanOptions options)
+    public IReadOnlyList<PortEntry> Scan(PortScanOptions options, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var rows = NativeTcp.GetTcpListeners()
             .Where(row => IsLocalAddress(row.LocalAddress))
             .Where(row => !options.ExcludedPorts.Contains(row.LocalPort))
@@ -24,11 +25,12 @@ public sealed class PortScanner
 
         var liveProcessIds = rows.Select(row => row.ProcessId).Distinct().ToArray();
         _inspector.PruneCaches(liveProcessIds);
-        _inspector.PreloadProcessDetails(liveProcessIds);
+        _inspector.PreloadProcessDetails(liveProcessIds, cancellationToken);
 
         var entries = new List<PortEntry>();
         foreach (var row in rows)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var entry = new PortEntry
             {
                 Protocol = row.Protocol,
@@ -38,13 +40,13 @@ public sealed class PortScanner
                 ProcessId = row.ProcessId
             };
 
-            _inspector.EnrichBasic(entry);
+            _inspector.EnrichBasic(entry, cancellationToken);
             if (!options.ShowAll && !IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
             {
                 continue;
             }
 
-            _inspector.EnrichDetails(entry);
+            _inspector.EnrichDetails(entry, cancellationToken);
             entries.Add(entry);
         }
 

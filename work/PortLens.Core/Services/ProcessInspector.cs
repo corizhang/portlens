@@ -18,7 +18,7 @@ internal sealed class ProcessInspector
         _cpuSampler.Prune(live);
     }
 
-    public void PreloadProcessDetails(IEnumerable<int> processIds)
+    public void PreloadProcessDetails(IEnumerable<int> processIds, CancellationToken cancellationToken = default)
     {
         var missingIds = processIds
             .Distinct()
@@ -29,9 +29,10 @@ internal sealed class ProcessInspector
             return;
         }
 
-        var commandLines = ProcessCommandLineReader.ReadMany(missingIds);
+        var commandLines = ProcessCommandLineReader.ReadMany(missingIds, cancellationToken);
         foreach (var processId in missingIds)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             commandLines.TryGetValue(processId, out var commandLine);
             _basicDetailsCache[processId] = new CachedProcessInfo(
                 DateTimeOffset.UtcNow,
@@ -41,7 +42,7 @@ internal sealed class ProcessInspector
         }
     }
 
-    public void EnrichBasic(PortEntry entry)
+    public void EnrichBasic(PortEntry entry, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -63,7 +64,7 @@ internal sealed class ProcessInspector
             var basic = GetCachedBasicDetails(entry.ProcessId);
             if (basic is null)
             {
-                basic = ReadProcessDetails(entry.ProcessId, readExecutablePath: false);
+                basic = ReadProcessDetails(entry.ProcessId, readExecutablePath: false, cancellationToken: cancellationToken);
                 _basicDetailsCache[entry.ProcessId] = basic;
             }
 
@@ -75,17 +76,17 @@ internal sealed class ProcessInspector
         }
     }
 
-    public void EnrichDetails(PortEntry entry)
+    public void EnrichDetails(PortEntry entry, CancellationToken cancellationToken = default)
     {
-        EnrichBasic(entry);
+        EnrichBasic(entry, cancellationToken);
 
         var cached = GetCachedDetails(entry.ProcessId, allowStale: false);
         if (cached is null)
         {
             var basic = GetCachedBasicDetails(entry.ProcessId);
             cached = basic is null
-                ? ReadProcessDetails(entry.ProcessId, readExecutablePath: true)
-                : ReadProcessDetails(entry.ProcessId, readExecutablePath: true, basic.CommandLine);
+                ? ReadProcessDetails(entry.ProcessId, readExecutablePath: true, cancellationToken: cancellationToken)
+                : ReadProcessDetails(entry.ProcessId, readExecutablePath: true, basic.CommandLine, cancellationToken);
             _detailsCache[entry.ProcessId] = cached;
             _basicDetailsCache[entry.ProcessId] = cached;
         }
@@ -111,9 +112,9 @@ internal sealed class ProcessInspector
         entry.IsRecognizedDevelopmentService = !string.IsNullOrWhiteSpace(entry.Framework);
     }
 
-    private static CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null)
+    private static CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
     {
-        var commandLine = cachedCommandLine ?? ProcessCommandLineReader.Read(processId);
+        var commandLine = cachedCommandLine ?? ProcessCommandLineReader.Read(processId, cancellationToken);
         var executablePath = Safe(() =>
         {
             using var process = Process.GetProcessById(processId);

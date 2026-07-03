@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Data;
+using System.Windows.Threading;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Models;
@@ -15,6 +16,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
     private readonly object _refreshLock = new();
+    private readonly DispatcherTimer _searchDebounceTimer;
+    private CancellationTokenSource? _refreshCts;
+    private CancellationTokenSource? _searchCts;
+    private HashSet<string> _matchingKeys = new(StringComparer.Ordinal);
 
     private bool _showSystemPorts;
     private int _refreshIntervalSeconds = 5;
@@ -34,8 +39,19 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _showSnackbarAsync = showSnackbarAsync;
 
         FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
-        FilteredEntries.Filter = item => item is PortEntryViewModel entry && Matches(entry);
+        FilteredEntries.Filter = item => item is PortEntryViewModel entry && (string.IsNullOrWhiteSpace(SearchText) || _matchingKeys.Contains(entry.Key));
         ApplyGrouping();
+
+        _searchDebounceTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher.CurrentDispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(150),
+            IsEnabled = false
+        };
+        _searchDebounceTimer.Tick += (_, _) =>
+        {
+            _searchDebounceTimer.Stop();
+            _ = RefreshSearchFilterAsync();
+        };
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -54,8 +70,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             _searchText = value;
             OnPropertyChanged(nameof(SearchText));
-            FilteredEntries.Refresh();
-            OnPropertyChanged(nameof(IsEmpty));
+            _searchDebounceTimer.Stop();
+            _searchDebounceTimer.Start();
         }
     }
 
@@ -156,6 +172,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             _isRefreshing = true;
         }
 
+        _refreshCts?.Cancel();
+        _refreshCts = new CancellationTokenSource();
+        var cancellationToken = _refreshCts.Token;
+
         StatusText = "Scanning in background...";
         var showAll = ShowSystemPorts;
 
@@ -167,7 +187,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 ExcludedPorts = _excludedPorts.ToHashSet(),
                 EnabledFrameworks = _enabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
             };
-            var entries = await Task.Run(() => _scanner.Scan(options));
+            var entries = await Task.Run(() => _scanner.Scan(options, cancellationToken), cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             ApplyEntries(entries);
             _lastScanAt = DateTime.Now;
             ServiceCountText = showAll
@@ -177,6 +198,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             StatusText = showAll
                 ? "Local listening ports"
                 : "Development services";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "Scan cancelled.";
         }
         catch (Exception ex)
         {
@@ -240,7 +265,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ApplyEntries(IReadOnlyList<PortEntry> entries)
     {
-        var liveKeys = entries.Select(CardKey).ToHashSet(StringComparer.Ordinal);
+        var liveKeys = entries.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var staleKey in _entriesByKey.Keys.Where(key => !liveKeys.Contains(key)).ToList())
         {
             var stale = _entriesByKey[staleKey];
@@ -251,7 +276,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         for (var index = 0; index < entries.Count; index++)
         {
             var entry = entries[index];
-            var key = CardKey(entry);
+            var key = entry.Key;
             if (_entriesByKey.TryGetValue(key, out var existing))
             {
                 existing.Update(entry);
@@ -269,8 +294,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             }
         }
 
-        FilteredEntries.Refresh();
-        OnPropertyChanged(nameof(IsEmpty));
+        _ = RefreshSearchFilterAsync();
     }
 
     private void ApplyGrouping()
@@ -285,20 +309,48 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(IsEmpty));
     }
 
-    private bool Matches(PortEntryViewModel entry)
+    private async Task RefreshSearchFilterAsync()
     {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            return true;
-        }
+        _searchCts?.Cancel();
+        _searchCts = new CancellationTokenSource();
+        var cancellationToken = _searchCts.Token;
+        var text = SearchText;
+        var entries = _entries.ToList();
 
-        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.ProjectGroupTitle, entry.ProjectGroupSubtitle, entry.Framework, entry.CommandText, entry.DirectoryText);
-        return haystack.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
+        try
+        {
+            var matchingKeys = await Task.Run(() =>
+            {
+                if (string.IsNullOrWhiteSpace(text))
+                {
+                    return entries.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
+                }
+
+                return entries
+                    .Where(entry => MatchesText(entry, text))
+                    .Select(entry => entry.Key)
+                    .ToHashSet(StringComparer.Ordinal);
+            }, cancellationToken);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _matchingKeys = matchingKeys;
+            FilteredEntries.Refresh();
+            OnPropertyChanged(nameof(IsEmpty));
+        }
+        catch (OperationCanceledException)
+        {
+            // Ignore
+        }
     }
 
-    private static string CardKey(PortEntry entry)
+    private static bool MatchesText(PortEntryViewModel entry, string text)
     {
-        return $"{entry.Protocol}:{entry.LocalAddress}:{entry.LocalPort}:{entry.ProcessId}";
+        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.ProjectGroupTitle, entry.ProjectGroupSubtitle, entry.Framework, entry.CommandText, entry.DirectoryText);
+        return haystack.Contains(text, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int NormalizeRefreshInterval(int seconds)

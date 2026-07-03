@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 3
+阶段 4
 
 ## 各阶段
 
@@ -39,12 +39,12 @@
 - **状态：** complete
 
 ### 阶段 3：性能优化（中优先级）
-- [ ] 优化 `ProcessCommandLineReader.ReadMany()` 的 PowerShell/CIM 查询，按 PID 过滤
-- [ ] 搜索过滤增加防抖 + 后台处理
-- [ ] 长时间操作添加 `CancellationToken` 支持
+- [x] 优化 `ProcessCommandLineReader.ReadMany()` 的 PowerShell/CIM 查询，按 PID 过滤
+- [x] 搜索过滤增加防抖 + 后台处理
+- [x] 长时间操作添加 `CancellationToken` 支持
 - [x] 缓存从 `Dictionary + lock` 迁移到 `ConcurrentDictionary`
 - [x] 隐藏窗口时进一步降低扫描频率或暂停
-- **状态：** in_progress
+- **状态：** complete
 
 ### 阶段 4：可维护性与质量（中优先级）
 - [ ] 提取统一的颜色/样式资源字典

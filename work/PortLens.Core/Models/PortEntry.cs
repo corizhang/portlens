@@ -20,6 +20,8 @@ public sealed class PortEntry
     public long? MemoryBytes { get; set; }
     public string RiskLevel { get; set; } = "Low";
 
+    public string Key => $"{Protocol}:{LocalAddress}:{LocalPort}:{ProcessId}";
+
     public string DisplayName =>
         !string.IsNullOrWhiteSpace(ProjectName) ? ProjectName :
         !string.IsNullOrWhiteSpace(ProcessName) ? ProcessName :

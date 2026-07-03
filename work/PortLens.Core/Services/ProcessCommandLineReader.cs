@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -8,7 +9,7 @@ internal static class ProcessCommandLineReader
 {
     private static readonly Regex CommandLineRegex = new(@"\s+", RegexOptions.Compiled);
 
-    public static string? Read(int processId)
+    public static string? Read(int processId, CancellationToken cancellationToken = default)
     {
         return Safe(() =>
         {
@@ -28,31 +29,40 @@ internal static class ProcessCommandLineReader
                 return null;
             }
 
-            var output = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(350))
+            using (cancellationToken.Register(() => Safe(() => process.Kill(entireProcessTree: true))))
             {
-                Safe(() =>
+                var output = process.StandardOutput.ReadToEnd();
+                if (!process.WaitForExit(350))
                 {
-                    process.Kill(entireProcessTree: true);
-                });
-                return null;
-            }
+                    Safe(() =>
+                    {
+                        process.Kill(entireProcessTree: true);
+                    });
+                    return null;
+                }
 
-            var trimmed = output.Trim();
-            return string.IsNullOrWhiteSpace(trimmed)
-                ? null
-                : CommandLineRegex.Replace(trimmed, " ");
+                var trimmed = output.Trim();
+                return string.IsNullOrWhiteSpace(trimmed)
+                    ? null
+                    : CommandLineRegex.Replace(trimmed, " ");
+            }
         });
     }
 
-    public static IReadOnlyDictionary<int, string?> ReadMany(IReadOnlyCollection<int> processIds)
+    public static IReadOnlyDictionary<int, string?> ReadMany(IReadOnlyCollection<int> processIds, CancellationToken cancellationToken = default)
     {
+        if (processIds.Count == 0)
+        {
+            return new Dictionary<int, string?>();
+        }
+
         return Safe(() =>
         {
+            var filter = BuildProcessIdFilter(processIds);
             var startInfo = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
-                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_Process | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress\"",
+                Arguments = $"-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_Process -Filter \\\"{filter}\\\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
@@ -65,18 +75,27 @@ internal static class ProcessCommandLineReader
                 return new Dictionary<int, string?>();
             }
 
-            var output = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(1200))
+            using (cancellationToken.Register(() => Safe(() => process.Kill(entireProcessTree: true))))
             {
-                Safe(() =>
+                var output = process.StandardOutput.ReadToEnd();
+                if (!process.WaitForExit(1200))
                 {
-                    process.Kill(entireProcessTree: true);
-                });
-                return new Dictionary<int, string?>();
-            }
+                    Safe(() =>
+                    {
+                        process.Kill(entireProcessTree: true);
+                    });
+                    return new Dictionary<int, string?>();
+                }
 
-            return ParseJsonProcessOutput(output, processIds);
+                cancellationToken.ThrowIfCancellationRequested();
+                return ParseJsonProcessOutput(output, processIds);
+            }
         }) ?? new Dictionary<int, string?>();
+    }
+
+    private static string BuildProcessIdFilter(IEnumerable<int> processIds)
+    {
+        return string.Join(" OR ", processIds.Select(processId => $"ProcessId={processId}"));
     }
 
     private static IReadOnlyDictionary<int, string?> ParseJsonProcessOutput(string output, IReadOnlyCollection<int> processIds)
