@@ -1,11 +1,19 @@
 using System.Diagnostics;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
 
-internal static class ProcessTreeReader
+public sealed class ProcessTreeReader
 {
-    public static int CountDescendants(int processId)
+    private readonly ILogger<ProcessTreeReader> _logger;
+
+    public ProcessTreeReader(ILogger<ProcessTreeReader> logger)
+    {
+        _logger = logger;
+    }
+
+    public int CountDescendants(int processId)
     {
         return Safe(() =>
         {
@@ -100,27 +108,28 @@ internal static class ProcessTreeReader
         children.Add(processId);
     }
 
-    private static T? Safe<T>(Func<T?> action)
+    private T? Safe<T>(Func<T?> action)
     {
         try
         {
             return action();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to count process descendants.");
             return default;
         }
     }
 
-    private static void Safe(Action action)
+    private void Safe(Action action)
     {
         try
         {
             action();
         }
-        catch
+        catch (Exception ex)
         {
-            // ignored
+            _logger.LogWarning(ex, "Failed to count process descendants.");
         }
     }
 }

@@ -76,7 +76,42 @@
   - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
 
 ### 阶段 4：可维护性与质量（中优先级）
-- **状态：** pending
+- **状态：** complete
+- **开始时间：** 2026-07-03
+- **完成时间：** 2026-07-03
+- 执行的操作：
+  - 创建 `Themes/PortLensColors.xaml` 和 `Themes/PortLensStyles.xaml`，集中管理颜色与样式
+  - 在 `App.xaml` 中合并主题资源字典
+  - 将 `MainWindow.xaml` 和 `SettingsDialog.xaml` 中的硬编码颜色替换为资源引用
+  - 为 `DesktopSettings` 增加 `Version` 字段，移除 `NormalizeEnabledFrameworks` 中的临时迁移逻辑
+  - 在 `DesktopSettingsStore` 中实现基于版本的设置迁移
+  - 引入 `Microsoft.Extensions.Logging`，新增 `FileLogger` 写入本地日志文件
+  - 在 `App.xaml.cs` 中注册全局未处理异常处理器
+  - 将 `ProcessCommandLineReader`、`ProcessTreeReader`、`ProcessCurrentDirectoryReader` 改为实例类并通过 DI 注入
+  - `ProcessInspector` 和 `PortScanner` 改为接收依赖注入
+  - 为原先静默吞掉异常的 `Safe` 辅助方法添加 Warning 日志
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `powershell.exe ./scripts/publish.ps1` 验证发布
+  - 验证发布后的 `PortLens.exe` 可正常启动
+- 创建/修改的文件：
+  - `work/PortLens.Core/PortLens.Core.csproj`
+  - `work/PortLens.Desktop/PortLens.Desktop.csproj`
+  - `work/PortLens.Desktop/Themes/PortLensColors.xaml`
+  - `work/PortLens.Desktop/Themes/PortLensStyles.xaml`
+  - `work/PortLens.Desktop/App.xaml`
+  - `work/PortLens.Desktop/MainWindow.xaml`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml`
+  - `work/PortLens.Desktop/Settings/DesktopSettings.cs`
+  - `work/PortLens.Desktop/Settings/DesktopSettingsStore.cs`
+  - `work/PortLens.Desktop/Services/FileLogger.cs`
+  - `work/PortLens.Desktop/App.xaml.cs`
+  - `work/PortLens.Desktop/ServiceRegistration.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+  - `work/PortLens.Core/Services/ProcessTreeReader.cs`
+  - `work/PortLens.Core/Services/ProcessCurrentDirectoryReader.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Core/Services/PortScanner.cs`
 
 ### 阶段 5：测试与 CI/CD
 - **状态：** pending
@@ -103,11 +138,11 @@
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 4：可维护性与质量 |
-| 我要去哪里？ | 阶段 4-7：可维护性、测试、CI/CD、功能补充、验证交付 |
+| 我在哪里？ | 阶段 5：测试与 CI/CD |
+| 我要去哪里？ | 阶段 5-7：测试、CI/CD、功能补充、验证交付 |
 | 目标是什么？ | 系统性地优化 PortLens 的代码结构、性能、可维护性和用户体验 |
 | 我学到了什么？ | 见 findings.md |
-| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3 |
+| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3、阶段 4 |
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*

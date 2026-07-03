@@ -1,15 +1,23 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
 
-internal static class ProcessCurrentDirectoryReader
+public sealed class ProcessCurrentDirectoryReader
 {
     private const int ProcessBasicInformationClass = 0;
     private const int PebProcessParametersOffset64 = 0x20;
     private const int CurrentDirectoryOffset64 = 0x38;
     private const int UnicodeStringBufferOffset64 = 0x8;
+
+    private readonly ILogger<ProcessCurrentDirectoryReader> _logger;
+
+    public ProcessCurrentDirectoryReader(ILogger<ProcessCurrentDirectoryReader> logger)
+    {
+        _logger = logger;
+    }
 
     [Flags]
     private enum ProcessAccessFlags : uint
@@ -18,7 +26,7 @@ internal static class ProcessCurrentDirectoryReader
         QueryLimitedInformation = 0x1000
     }
 
-    public static string? Read(int processId)
+    public string? Read(int processId)
     {
         if (IntPtr.Size != 8)
         {
@@ -58,8 +66,9 @@ internal static class ProcessCurrentDirectoryReader
             var path = Encoding.Unicode.GetString(bytes).TrimEnd('\0');
             return Directory.Exists(path) ? path : null;
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to read current directory for process {ProcessId}.", processId);
             return null;
         }
         finally

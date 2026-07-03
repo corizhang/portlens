@@ -128,15 +128,50 @@
   - `powershell.exe ./scripts/publish.ps1` 成功发布到 `outputs/PortLensMaterial`。
   - 发布后的 `PortLens.exe` 可正常启动。
 
+## 阶段 4 结果
+
+- 提取了统一的颜色/样式资源字典：
+  - 新增 `Themes/PortLensColors.xaml`，集中定义所有主题色刷。
+  - 新增 `Themes/PortLensStyles.xaml`，集中定义 `PortActionButton`、`SearchTextBox`、`MetaIcon` 等样式。
+  - `App.xaml` 合并上述资源字典。
+  - `MainWindow.xaml` 和 `SettingsDialog.xaml` 移除硬编码颜色，改用资源引用。
+- 用设置版本迁移替代 `NormalizeEnabledFrameworks` 中的临时逻辑：
+  - `DesktopSettings` 增加 `Version` 字段（当前为 1）。
+  - `DesktopSettingsStore.Load` 在版本过期时迁移为默认框架列表。
+  - `MainWindowViewModel.NormalizeEnabledFrameworks` 仅做有效性过滤，不再包含隐式迁移。
+- 添加了日志记录：
+  - 引入 `Microsoft.Extensions.Logging.Abstractions`（Core）和 `Microsoft.Extensions.Logging`（Desktop）。
+  - 新增 `FileLogger` / `FileLoggerProvider`，日志写入 `%LocalAppData%\PortLens\logs\portlens-YYYYMMDD.log`。
+  - `App.xaml.cs` 增加 Dispatcher / AppDomain / TaskScheduler 未处理异常记录。
+- 统一异常处理：
+  - 将 `ProcessCommandLineReader`、`ProcessTreeReader`、`ProcessCurrentDirectoryReader` 从静态类改为实例类，通过 DI 注入 `ILogger<T>`。
+  - `ProcessInspector`、`PortScanner` 改为通过 DI 接收依赖。
+  - 原先静默吞掉异常的 `Safe` 辅助方法和 `catch` 块现在记录 Warning 日志。
+- 验证：
+  - `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+  - `powershell.exe ./scripts/publish.ps1` 成功发布到 `outputs/PortLensMaterial`。
+  - 发布后的 `PortLens.exe` 可正常启动。
+
 ## 资源
 
 - [PortLens.Core 项目文件](work/PortLens.Core/PortLens.Core.csproj)
 - [PortLens.Desktop 项目文件](work/PortLens.Desktop/PortLens.Desktop.csproj)
+- [PortLensColors.xaml](work/PortLens.Desktop/Themes/PortLensColors.xaml)
+- [PortLensStyles.xaml](work/PortLens.Desktop/Themes/PortLensStyles.xaml)
+- [App.xaml](work/PortLens.Desktop/App.xaml)
+- [MainWindow.xaml](work/PortLens.Desktop/MainWindow.xaml)
+- [SettingsDialog.xaml](work/PortLens.Desktop/Dialogs/SettingsDialog.xaml)
+- [DesktopSettings.cs](work/PortLens.Desktop/Settings/DesktopSettings.cs)
+- [DesktopSettingsStore.cs](work/PortLens.Desktop/Settings/DesktopSettingsStore.cs)
+- [FileLogger.cs](work/PortLens.Desktop/Services/FileLogger.cs)
+- [App.xaml.cs](work/PortLens.Desktop/App.xaml.cs)
+- [ServiceRegistration.cs](work/PortLens.Desktop/ServiceRegistration.cs)
 - [ProcessCommandLineReader.cs](work/PortLens.Core/Services/ProcessCommandLineReader.cs)
+- [ProcessTreeReader.cs](work/PortLens.Core/Services/ProcessTreeReader.cs)
+- [ProcessCurrentDirectoryReader.cs](work/PortLens.Core/Services/ProcessCurrentDirectoryReader.cs)
 - [ProcessInspector.cs](work/PortLens.Core/Services/ProcessInspector.cs)
 - [PortScanner.cs](work/PortLens.Core/Services/PortScanner.cs)
 - [MainWindowViewModel.cs](work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs)
-- [PortEntry.cs](work/PortLens.Core/Models/PortEntry.cs)
 - [publish.ps1](scripts/publish.ps1)
 
 ## 视觉/浏览器发现

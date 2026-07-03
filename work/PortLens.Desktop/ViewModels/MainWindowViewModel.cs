@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Data;
 using System.Windows.Threading;
+using Microsoft.Extensions.Logging;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Models;
@@ -13,6 +14,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly PortScanner _scanner;
     private readonly Func<string, Task> _showSnackbarAsync;
+    private readonly ILogger<MainWindowViewModel> _logger;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
     private readonly object _refreshLock = new();
@@ -33,10 +35,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
 
-    public MainWindowViewModel(PortScanner scanner, Func<string, Task> showSnackbarAsync)
+    public MainWindowViewModel(PortScanner scanner, Func<string, Task> showSnackbarAsync, ILogger<MainWindowViewModel> logger)
     {
         _scanner = scanner;
         _showSnackbarAsync = showSnackbarAsync;
+        _logger = logger;
 
         FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
         FilteredEntries.Filter = item => item is PortEntryViewModel entry && (string.IsNullOrWhiteSpace(SearchText) || _matchingKeys.Contains(entry.Key));
@@ -205,6 +208,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         catch (Exception ex)
         {
+            _logger.LogError(ex, "Scan failed.");
             StatusText = $"Scan failed: {ex.Message}";
         }
         finally
@@ -345,6 +349,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             // Ignore
         }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Search filter update failed.");
+        }
     }
 
     private static bool MatchesText(PortEntryViewModel entry, string text)
@@ -373,25 +381,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks)
     {
         var valid = DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var provided = frameworks?.ToArray();
-        var normalized = provided?
+        var normalized = frameworks?
             .Where(framework => valid.Contains(framework))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        if (normalized is null)
-        {
-            return valid;
-        }
-
-        var previousDefault = valid.Where(framework => !framework.Equals("Go", StringComparison.OrdinalIgnoreCase)).ToArray();
-        var wasPreviousDefault = normalized.Count == previousDefault.Length &&
-            previousDefault.All(framework => normalized.Contains(framework));
-        if (wasPreviousDefault)
-        {
-            normalized.Add("Go");
-        }
-
-        return normalized;
+        return normalized is { Count: > 0 } ? normalized : valid;
     }
 
     private void OnPropertyChanged(string propertyName)

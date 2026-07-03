@@ -27,12 +27,25 @@ internal sealed class DesktopSettingsStore
             }
 
             var json = File.ReadAllText(_settingsPath);
-            return JsonSerializer.Deserialize<DesktopSettings>(json, JsonOptions) ?? new DesktopSettings();
+            var settings = JsonSerializer.Deserialize<DesktopSettings>(json, JsonOptions) ?? new DesktopSettings();
+            return Migrate(settings);
         }
         catch
         {
             return new DesktopSettings();
         }
+    }
+
+    private static DesktopSettings Migrate(DesktopSettings settings)
+    {
+        if (settings.Version >= DesktopSettings.CurrentVersion)
+        {
+            return settings;
+        }
+
+        settings.Version = DesktopSettings.CurrentVersion;
+        settings.EnabledFrameworks = [.. DesktopSettings.DefaultEnabledFrameworks];
+        return settings;
     }
 
     public void Save(DesktopSettings settings)

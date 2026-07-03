@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 4
+阶段 5
 
 ## 各阶段
 
@@ -47,11 +47,11 @@
 - **状态：** complete
 
 ### 阶段 4：可维护性与质量（中优先级）
-- [ ] 提取统一的颜色/样式资源字典
-- [ ] 移除 `NormalizeEnabledFrameworks` 中的临时迁移逻辑，改用设置版本迁移
-- [ ] 添加日志记录（`Microsoft.Extensions.Logging` 或简单文件日志）
-- [ ] 统一异常处理，避免空 `catch` 块
-- **状态：** pending
+- [x] 提取统一的颜色/样式资源字典
+- [x] 移除 `NormalizeEnabledFrameworks` 中的临时迁移逻辑，改用设置版本迁移
+- [x] 添加日志记录（`Microsoft.Extensions.Logging` 或简单文件日志）
+- [x] 统一异常处理，避免空 `catch` 块
+- **状态：** complete
 
 ### 阶段 5：测试与 CI/CD
 - [ ] 创建单元测试项目 `PortLens.Core.Tests`

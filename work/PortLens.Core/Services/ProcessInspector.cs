@@ -1,14 +1,31 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 using PortLens.Models;
 
 namespace PortLens.Services;
 
-internal sealed class ProcessInspector
+public sealed class ProcessInspector
 {
     private readonly CpuSampler _cpuSampler = new();
     private readonly ConcurrentDictionary<int, CachedProcessInfo> _detailsCache = new();
     private readonly ConcurrentDictionary<int, CachedProcessInfo> _basicDetailsCache = new();
+    private readonly ProcessCommandLineReader _commandLineReader;
+    private readonly ProcessCurrentDirectoryReader _currentDirectoryReader;
+    private readonly ProcessTreeReader _processTreeReader;
+    private readonly ILogger<ProcessInspector> _logger;
+
+    public ProcessInspector(
+        ProcessCommandLineReader commandLineReader,
+        ProcessCurrentDirectoryReader currentDirectoryReader,
+        ProcessTreeReader processTreeReader,
+        ILogger<ProcessInspector> logger)
+    {
+        _commandLineReader = commandLineReader;
+        _currentDirectoryReader = currentDirectoryReader;
+        _processTreeReader = processTreeReader;
+        _logger = logger;
+    }
 
     public void PruneCaches(IEnumerable<int> liveProcessIds)
     {
@@ -29,7 +46,7 @@ internal sealed class ProcessInspector
             return;
         }
 
-        var commandLines = ProcessCommandLineReader.ReadMany(missingIds, cancellationToken);
+        var commandLines = _commandLineReader.ReadMany(missingIds, cancellationToken);
         foreach (var processId in missingIds)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -100,7 +117,7 @@ internal sealed class ProcessInspector
         process.Kill(entireProcessTree: true);
     }
 
-    public int CountChildProcesses(int processId) => ProcessTreeReader.CountDescendants(processId);
+    public int CountChildProcesses(int processId) => _processTreeReader.CountDescendants(processId);
 
     private static void ApplyDetails(PortEntry entry, CachedProcessInfo cached)
     {
@@ -112,15 +129,15 @@ internal sealed class ProcessInspector
         entry.IsRecognizedDevelopmentService = !string.IsNullOrWhiteSpace(entry.Framework);
     }
 
-    private static CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
+    private CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
     {
-        var commandLine = cachedCommandLine ?? ProcessCommandLineReader.Read(processId, cancellationToken);
+        var commandLine = cachedCommandLine ?? _commandLineReader.Read(processId, cancellationToken);
         var executablePath = Safe(() =>
         {
             using var process = Process.GetProcessById(processId);
             return readExecutablePath ? process.MainModule?.FileName : null;
         });
-        var currentDirectory = ProcessCurrentDirectoryReader.Read(processId);
+        var currentDirectory = _currentDirectoryReader.Read(processId);
         var workingDirectory = ProjectNameResolver.InferWorkingDirectory(commandLine, executablePath, currentDirectory);
         return new CachedProcessInfo(DateTimeOffset.UtcNow, executablePath, commandLine, workingDirectory);
     }

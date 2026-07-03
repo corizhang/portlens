@@ -2,8 +2,10 @@ namespace PortLens.Desktop.Settings;
 
 internal sealed class DesktopSettings
 {
+    public const int CurrentVersion = 1;
     public static readonly string[] DefaultEnabledFrameworks = ["Vite", "Next.js", "Nuxt", "Django", "FastAPI", "Spring", ".NET", "Go", "Docker", "WSL"];
 
+    public int Version { get; set; } = CurrentVersion;
     public string SearchText { get; set; } = "";
     public bool ShowSystemPorts { get; set; }
     public int RefreshIntervalSeconds { get; set; } = 5;

@@ -2,14 +2,21 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
 
-internal static class ProcessCommandLineReader
+public sealed class ProcessCommandLineReader
 {
     private static readonly Regex CommandLineRegex = new(@"\s+", RegexOptions.Compiled);
+    private readonly ILogger<ProcessCommandLineReader> _logger;
 
-    public static string? Read(int processId, CancellationToken cancellationToken = default)
+    public ProcessCommandLineReader(ILogger<ProcessCommandLineReader> logger)
+    {
+        _logger = logger;
+    }
+
+    public string? Read(int processId, CancellationToken cancellationToken = default)
     {
         return Safe(() =>
         {
@@ -49,7 +56,7 @@ internal static class ProcessCommandLineReader
         });
     }
 
-    public static IReadOnlyDictionary<int, string?> ReadMany(IReadOnlyCollection<int> processIds, CancellationToken cancellationToken = default)
+    public IReadOnlyDictionary<int, string?> ReadMany(IReadOnlyCollection<int> processIds, CancellationToken cancellationToken = default)
     {
         if (processIds.Count == 0)
         {
@@ -136,27 +143,28 @@ internal static class ProcessCommandLineReader
         result[processId] = string.IsNullOrWhiteSpace(commandLine) ? null : commandLine;
     }
 
-    private static T? Safe<T>(Func<T?> action)
+    private T? Safe<T>(Func<T?> action)
     {
         try
         {
             return action();
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Failed to read process command line.");
             return default;
         }
     }
 
-    private static void Safe(Action action)
+    private void Safe(Action action)
     {
         try
         {
             action();
         }
-        catch
+        catch (Exception ex)
         {
-            // ignored
+            _logger.LogWarning(ex, "Failed to read process command line.");
         }
     }
 }

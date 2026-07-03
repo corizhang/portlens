@@ -4,7 +4,12 @@ namespace PortLens.Services;
 
 public sealed class PortScanner
 {
-    private readonly ProcessInspector _inspector = new();
+    private readonly ProcessInspector _inspector;
+
+    public PortScanner(ProcessInspector inspector)
+    {
+        _inspector = inspector;
+    }
 
     public IReadOnlyList<PortEntry> Scan(bool showAll, CancellationToken cancellationToken = default)
     {

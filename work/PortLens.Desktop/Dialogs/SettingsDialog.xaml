@@ -18,12 +18,12 @@
             <materialDesign:PackIcon Kind="CogOutline"
                                      Width="28"
                                      Height="28"
-                                     Foreground="#673AB7"
+                                     Foreground="{StaticResource PortLensSettingsIconBrush}"
                                      Margin="0,0,12,0" />
             <TextBlock Text="Settings"
                        FontSize="20"
                        FontWeight="SemiBold"
-                       Foreground="#221B18"
+                       Foreground="{StaticResource PortLensDialogTitleBrush}"
                        VerticalAlignment="Center" />
         </StackPanel>
 
@@ -75,10 +75,10 @@
                                 <TextBlock Text="System ports"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="Include non-development listening ports."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ToggleButton x:Name="ShowSystemPortsToggle"
@@ -96,10 +96,10 @@
                                 <TextBlock Text="Refresh interval"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="How often PortLens scans in the background."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ComboBox x:Name="RefreshIntervalCombo"
@@ -122,10 +122,10 @@
                                 <TextBlock Text="Window placement"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="Restore size and position on launch."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ToggleButton x:Name="RememberPlacementToggle"
@@ -143,10 +143,10 @@
                                 <TextBlock Text="Close behavior"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="Hide to tray when the close button is used."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ToggleButton x:Name="CloseToTrayToggle"
@@ -164,10 +164,10 @@
                                 <TextBlock Text="Group by project"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="Group sibling services by inferred project root."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ToggleButton x:Name="GroupByProjectToggle"
@@ -185,10 +185,10 @@
                                 <TextBlock Text="Status metrics"
                                            FontSize="14"
                                            FontWeight="SemiBold"
-                                           Foreground="#302A26" />
+                                           Foreground="{StaticResource PortLensSectionTitleBrush}" />
                                 <TextBlock Text="Show PortLens CPU and memory in the status bar."
                                            FontSize="12"
-                                           Foreground="#7C716A"
+                                           Foreground="{StaticResource PortLensTextBrush}"
                                            Margin="0,3,0,0" />
                             </StackPanel>
                             <ToggleButton x:Name="ShowAppMetricsToggle"
@@ -198,7 +198,7 @@
                         </Grid>
 
                         <TextBlock Text="PortLens - local development port monitor"
-                                   Foreground="#7C716A"
+                                   Foreground="{StaticResource PortLensTextBrush}"
                                    FontSize="12"
                                    Margin="0,18,0,0" />
                     </StackPanel>
@@ -211,11 +211,11 @@
                         <TextBlock Text="Development rules"
                                    FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="#302A26"
+                                   Foreground="{StaticResource PortLensSectionTitleBrush}"
                                    Margin="0,0,0,8" />
                         <TextBlock Text="These rules decide which recognized services appear when System ports is off."
                                    TextWrapping="Wrap"
-                                   Foreground="#7C716A"
+                                   Foreground="{StaticResource PortLensTextBrush}"
                                    FontSize="12"
                                    Margin="0,0,0,16" />
                         <UniformGrid x:Name="FrameworkRulesGrid"
@@ -232,11 +232,11 @@
                         <TextBlock Text="Port blacklist"
                                    FontSize="14"
                                    FontWeight="SemiBold"
-                                   Foreground="#302A26"
+                                   Foreground="{StaticResource PortLensSectionTitleBrush}"
                                    Margin="0,0,0,4" />
                         <TextBlock Text="Blacklisted ports stay hidden even when System ports is enabled."
                                    TextWrapping="Wrap"
-                                   Foreground="#7C716A"
+                                   Foreground="{StaticResource PortLensTextBrush}"
                                    FontSize="12" />
                     </StackPanel>
                     <ScrollViewer MaxHeight="280"
@@ -255,7 +255,7 @@
             </Grid.ColumnDefinitions>
             <Button Content="Reset"
                     MinWidth="86"
-                    Foreground="#B3261E"
+                    Foreground="{StaticResource PortLensDangerBrush}"
                     Style="{StaticResource MaterialDesignOutlinedButton}"
                     Click="ResetButton_Click" />
             <StackPanel Grid.Column="1"
