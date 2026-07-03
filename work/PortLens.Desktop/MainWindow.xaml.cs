@@ -16,10 +16,6 @@ using PortLens.Models;
 using PortLens.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Desktop.ViewModels;
-using WpfButton = System.Windows.Controls.Button;
-using WpfColor = System.Windows.Media.Color;
-using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
-using WpfOrientation = System.Windows.Controls.Orientation;
 
 namespace PortLens.Desktop;
 
@@ -31,6 +27,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly DispatcherTimer _settingsSaveTimer = new();
     private readonly DesktopSettingsStore _settingsStore = new();
     private readonly TrayIconService _trayIcon;
+    private readonly PortEntryActionService _entryActions;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
@@ -65,6 +62,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FilteredEntries.Filter = item => item is PortEntryViewModel entry && Matches(entry);
         ApplyGrouping();
 
+        _entryActions = new PortEntryActionService(_scanner, ShowSnackbar, RefreshPortsAsync);
         _trayIcon = new TrayIconService(this, ShowMainWindow, RefreshPortsAsync, ExitApplication);
 
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
@@ -620,7 +618,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenUrl(entry);
+            _entryActions.OpenUrl(entry);
         }
     }
 
@@ -628,7 +626,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            CopyText(entry.Url, $"Copied {entry.Url}");
+            _entryActions.CopyUrl(entry);
         }
     }
 
@@ -636,7 +634,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            CopyText(entry.ProcessId.ToString(), $"Copied PID {entry.ProcessId}");
+            _entryActions.CopyPid(entry);
         }
     }
 
@@ -644,7 +642,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenProjectDirectory(entry);
+            _entryActions.OpenProjectDirectory(entry);
         }
     }
 
@@ -655,14 +653,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        await KillProcessTreeAsync(entry);
+        await _entryActions.KillProcessTreeAsync(entry);
     }
 
     private void OpenUrlMenuItem_Click(object sender, RoutedEventArgs e)
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenUrl(entry);
+            _entryActions.OpenUrl(entry);
         }
     }
 
@@ -670,7 +668,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            CopyText(entry.Url, $"Copied {entry.Url}");
+            _entryActions.CopyUrl(entry);
         }
     }
 
@@ -678,7 +676,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            CopyText(entry.CommandText, "Copied command line.");
+            _entryActions.CopyCommandLine(entry);
         }
     }
 
@@ -686,7 +684,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenProcessDirectory(entry);
+            _entryActions.OpenProcessDirectory(entry);
         }
     }
 
@@ -694,7 +692,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenProjectDirectory(entry);
+            _entryActions.OpenProjectDirectory(entry);
         }
     }
 
@@ -702,7 +700,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            OpenTerminal(entry);
+            _entryActions.OpenTerminal(entry);
         }
     }
 
@@ -723,128 +721,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         if (GetEntry(sender) is { } entry)
         {
-            await KillProcessTreeAsync(entry);
-        }
-    }
-
-    private void OpenUrl(PortEntryViewModel entry)
-    {
-        TryStart(new ProcessStartInfo(entry.Url) { UseShellExecute = true }, $"Opened {entry.Url}", "Open URL failed.");
-    }
-
-    private void OpenProcessDirectory(PortEntryViewModel entry)
-    {
-        var directory = entry.ProcessDirectory;
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            ShowSnackbar("Process directory is unavailable.");
-            return;
-        }
-
-        OpenDirectory(directory, "Process directory does not exist.");
-    }
-
-    private void OpenProjectDirectory(PortEntryViewModel entry)
-    {
-        if (string.IsNullOrWhiteSpace(entry.WorkingDirectory))
-        {
-            ShowSnackbar("Project directory is unavailable.");
-            return;
-        }
-
-        OpenDirectory(entry.WorkingDirectory, "Project directory does not exist.");
-    }
-
-    private void OpenDirectory(string directory, string missingMessage)
-    {
-        if (!Directory.Exists(directory))
-        {
-            ShowSnackbar(missingMessage);
-            return;
-        }
-
-        TryStart(new ProcessStartInfo(directory) { UseShellExecute = true }, "Opened directory.", "Open directory failed.");
-    }
-
-    private void OpenTerminal(PortEntryViewModel entry)
-    {
-        var directory = !string.IsNullOrWhiteSpace(entry.WorkingDirectory)
-            ? entry.WorkingDirectory
-            : entry.ProcessDirectory;
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-        {
-            ShowSnackbar("Terminal directory is unavailable.");
-            return;
-        }
-
-        if (TryStart(new ProcessStartInfo("wt.exe")
-            {
-                UseShellExecute = true,
-                WorkingDirectory = directory
-            },
-            "Opened terminal.",
-            null))
-        {
-            return;
-        }
-
-        TryStart(new ProcessStartInfo("powershell.exe")
-        {
-            UseShellExecute = true,
-            WorkingDirectory = directory
-        }, "Opened terminal.", "Open terminal failed.");
-    }
-
-    private async Task KillProcessTreeAsync(PortEntryViewModel entry)
-    {
-        var childProcessCount = await Task.Run(() => _scanner.CountChildProcesses(entry.ProcessId));
-        var confirmed = await ShowKillConfirmationAsync(entry, childProcessCount);
-        if (!confirmed)
-        {
-            return;
-        }
-
-        try
-        {
-            _scanner.Kill(entry.ProcessId);
-            ShowSnackbar($"Killed PID {entry.ProcessId}.");
-            _ = RefreshPortsAsync();
-        }
-        catch (Exception ex)
-        {
-            ShowSnackbar($"Kill failed: {ex.Message}");
-        }
-    }
-
-    private void CopyText(string text, string successMessage)
-    {
-        try
-        {
-            System.Windows.Clipboard.SetText(text);
-            ShowSnackbar(successMessage);
-        }
-        catch (Exception ex)
-        {
-            ShowSnackbar($"Copy failed: {ex.Message}");
-        }
-    }
-
-    private bool TryStart(ProcessStartInfo startInfo, string successMessage, string? failureMessage)
-    {
-        try
-        {
-            Process.Start(startInfo);
-            ShowSnackbar(successMessage);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            if (!string.IsNullOrWhiteSpace(failureMessage))
-            {
-                ShowSnackbar($"{failureMessage} {ex.Message}");
-            }
-
-            return false;
+            await _entryActions.KillProcessTreeAsync(entry);
         }
     }
 
@@ -852,86 +729,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         SnackbarMessageQueue.Enqueue(message);
         StatusText = message;
-    }
-
-    private static async Task<bool> ShowKillConfirmationAsync(PortEntryViewModel entry, int childProcessCount)
-    {
-        var panel = new StackPanel
-        {
-            Width = 420,
-            Margin = new Thickness(24)
-        };
-
-        var header = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 16)
-        };
-        header.Children.Add(new PackIcon
-        {
-            Kind = PackIconKind.AlertCircleOutline,
-            Width = 30,
-            Height = 30,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(179, 38, 30)),
-            Margin = new Thickness(0, 0, 12, 0)
-        });
-        header.Children.Add(new TextBlock
-        {
-            Text = "Confirm kill",
-            FontSize = 20,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(34, 27, 24)),
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        panel.Children.Add(header);
-
-        panel.Children.Add(new TextBlock
-        {
-            Text = childProcessCount > 0
-                ? $"Kill PID {entry.ProcessId} ({entry.ProcessName}) and {childProcessCount} child process(es)?"
-                : $"Kill PID {entry.ProcessId} ({entry.ProcessName})?",
-            TextWrapping = TextWrapping.Wrap,
-            FontSize = 14,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(72, 63, 58)),
-            Margin = new Thickness(0, 0, 0, 8)
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = entry.DisplayName,
-            FontSize = 13,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-            Margin = new Thickness(0, 0, 0, 20)
-        });
-
-        var actions = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            HorizontalAlignment = WpfHorizontalAlignment.Right
-        };
-        var cancel = new WpfButton
-        {
-            Content = "Cancel",
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            Margin = new Thickness(0, 0, 8, 0),
-            MinWidth = 88,
-            Command = DialogHost.CloseDialogCommand,
-            CommandParameter = false
-        };
-        var kill = new WpfButton
-        {
-            Content = "Kill",
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(179, 38, 30)),
-            MinWidth = 88,
-            Command = DialogHost.CloseDialogCommand,
-            CommandParameter = true
-        };
-        actions.Children.Add(cancel);
-        actions.Children.Add(kill);
-        panel.Children.Add(actions);
-
-        var result = await DialogHost.Show(panel, "RootDialog");
-        return result is true;
     }
 
     private static PortEntryViewModel? GetEntry(object sender)
