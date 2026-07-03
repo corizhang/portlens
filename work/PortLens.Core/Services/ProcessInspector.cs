@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using PortLens.Models;
 
@@ -43,7 +45,7 @@ internal sealed class ProcessInspector
                     DateTimeOffset.UtcNow,
                     null,
                     commandLine,
-                    InferWorkingDirectory(commandLine, null));
+                    InferWorkingDirectory(commandLine, null, null));
             }
         }
     }
@@ -161,7 +163,8 @@ internal sealed class ProcessInspector
             using var process = Process.GetProcessById(processId);
             return readExecutablePath ? process.MainModule?.FileName : null;
         });
-        var workingDirectory = InferWorkingDirectory(commandLine, executablePath);
+        var currentDirectory = ProcessCurrentDirectoryReader.Read(processId);
+        var workingDirectory = InferWorkingDirectory(commandLine, executablePath, currentDirectory);
         return new CachedProcessInfo(DateTimeOffset.UtcNow, executablePath, commandLine, workingDirectory);
     }
 
@@ -195,12 +198,17 @@ internal sealed class ProcessInspector
         }
     }
 
-    private static string? InferWorkingDirectory(string? commandLine, string? executablePath)
+    private static string? InferWorkingDirectory(string? commandLine, string? executablePath, string? currentDirectory)
     {
         var projectDirectory = InferProjectDirectory(commandLine);
         if (!string.IsNullOrWhiteSpace(projectDirectory))
         {
             return projectDirectory;
+        }
+
+        if (ExistingDirectoryOrNull(currentDirectory) is { } existingCurrentDirectory)
+        {
+            return existingCurrentDirectory;
         }
 
         if (!string.IsNullOrWhiteSpace(commandLine))
@@ -220,6 +228,11 @@ internal sealed class ProcessInspector
                     }
                 }
             }
+        }
+
+        if (IsGoBuildPath(executablePath))
+        {
+            return null;
         }
 
         return !string.IsNullOrWhiteSpace(executablePath) ? Path.GetDirectoryName(executablePath) : null;
@@ -280,6 +293,11 @@ internal sealed class ProcessInspector
 
                 return ExistingDirectoryOrNull(Path.GetDirectoryName(normalized));
             }
+
+            if (lowered.EndsWith(".exe", StringComparison.Ordinal) && !IsGoBuildPath(normalized))
+            {
+                return ExistingDirectoryOrNull(Path.GetDirectoryName(normalized));
+            }
         }
 
         return null;
@@ -306,6 +324,24 @@ internal sealed class ProcessInspector
         }
 
         return Directory.Exists(path) ? path : null;
+    }
+
+    private static bool IsGoBuildPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (string.IsNullOrWhiteSpace(localAppData))
+        {
+            return path.Contains(@"\go-build\", StringComparison.OrdinalIgnoreCase);
+        }
+
+        var goBuildRoot = Path.Combine(localAppData, "go-build");
+        return path.StartsWith(goBuildRoot, StringComparison.OrdinalIgnoreCase)
+            || path.Contains(@"\go-build\", StringComparison.OrdinalIgnoreCase);
     }
 
     private static string InferFramework(PortEntry entry)
@@ -369,6 +405,124 @@ internal sealed class ProcessInspector
     private sealed record CachedProcessInfo(DateTimeOffset CachedAt, string? ExecutablePath, string? CommandLine, string? WorkingDirectory);
     private static readonly Regex QuotedWindowsPathRegex = new(@"""([A-Za-z]:\\[^""]+)""", RegexOptions.Compiled);
     private static readonly Regex UnquotedWindowsPathRegex = new(@"[A-Za-z]:\\[^\s""']+", RegexOptions.Compiled);
+
+    private static class ProcessCurrentDirectoryReader
+    {
+        private const int ProcessBasicInformationClass = 0;
+        private const int PebProcessParametersOffset64 = 0x20;
+        private const int CurrentDirectoryOffset64 = 0x38;
+        private const int UnicodeStringBufferOffset64 = 0x8;
+
+        [Flags]
+        private enum ProcessAccessFlags : uint
+        {
+            VirtualMemoryRead = 0x0010,
+            QueryLimitedInformation = 0x1000
+        }
+
+        public static string? Read(int processId)
+        {
+            if (IntPtr.Size != 8)
+            {
+                return null;
+            }
+
+            var handle = OpenProcess(ProcessAccessFlags.QueryLimitedInformation | ProcessAccessFlags.VirtualMemoryRead, false, processId);
+            if (handle == IntPtr.Zero)
+            {
+                return null;
+            }
+
+            try
+            {
+                var info = new ProcessBasicInformation();
+                var status = NtQueryInformationProcess(handle, ProcessBasicInformationClass, ref info, Marshal.SizeOf<ProcessBasicInformation>(), out _);
+                if (status != 0 || info.PebBaseAddress == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                var parametersAddress = ReadIntPtr(handle, IntPtr.Add(info.PebBaseAddress, PebProcessParametersOffset64));
+                if (parametersAddress == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                var currentDirectoryAddress = IntPtr.Add(parametersAddress, CurrentDirectoryOffset64);
+                var length = ReadUInt16(handle, currentDirectoryAddress);
+                var bufferAddress = ReadIntPtr(handle, IntPtr.Add(currentDirectoryAddress, UnicodeStringBufferOffset64));
+                if (length == 0 || bufferAddress == IntPtr.Zero)
+                {
+                    return null;
+                }
+
+                var bytes = ReadBytes(handle, bufferAddress, length);
+                var path = Encoding.Unicode.GetString(bytes).TrimEnd('\0');
+                return Directory.Exists(path) ? path : null;
+            }
+            catch
+            {
+                return null;
+            }
+            finally
+            {
+                CloseHandle(handle);
+            }
+        }
+
+        private static ushort ReadUInt16(IntPtr handle, IntPtr address)
+        {
+            var bytes = ReadBytes(handle, address, sizeof(ushort));
+            return BitConverter.ToUInt16(bytes, 0);
+        }
+
+        private static IntPtr ReadIntPtr(IntPtr handle, IntPtr address)
+        {
+            var bytes = ReadBytes(handle, address, sizeof(long));
+            return new IntPtr(BitConverter.ToInt64(bytes, 0));
+        }
+
+        private static byte[] ReadBytes(IntPtr handle, IntPtr address, int length)
+        {
+            var bytes = new byte[length];
+            if (!ReadProcessMemory(handle, address, bytes, bytes.Length, out var bytesRead) || bytesRead.ToUInt64() < (ulong)length)
+            {
+                throw new InvalidOperationException("Unable to read process memory.");
+            }
+
+            return bytes;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr OpenProcess(ProcessAccessFlags desiredAccess, bool inheritHandle, int processId);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool ReadProcessMemory(IntPtr processHandle, IntPtr baseAddress, byte[] buffer, int size, out UIntPtr bytesRead);
+
+        [DllImport("kernel32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool CloseHandle(IntPtr handle);
+
+        [DllImport("ntdll.dll")]
+        private static extern int NtQueryInformationProcess(
+            IntPtr processHandle,
+            int processInformationClass,
+            ref ProcessBasicInformation processInformation,
+            int processInformationLength,
+            out int returnLength);
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct ProcessBasicInformation
+        {
+            public IntPtr Reserved1;
+            public IntPtr PebBaseAddress;
+            public IntPtr Reserved2;
+            public IntPtr Reserved3;
+            public IntPtr UniqueProcessId;
+            public IntPtr Reserved4;
+        }
+    }
 
     private static class ProcessCommandLineReader
     {

@@ -1,11 +1,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
@@ -24,11 +27,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private readonly PortScanner _scanner = new();
     private readonly DispatcherTimer _timer = new();
+    private readonly DispatcherTimer _appMetricsTimer = new();
     private readonly DispatcherTimer _settingsSaveTimer = new();
     private readonly DesktopSettingsStore _settingsStore = new();
     private readonly Forms.NotifyIcon _notifyIcon;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
+    private System.Windows.Controls.ContextMenu? _trayContextMenu;
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     public SnackbarMessageQueue SnackbarMessageQueue { get; } = new(TimeSpan.FromSeconds(3));
     private DesktopSettings _settings = new();
@@ -44,6 +49,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
     private string _searchText = "";
     private string _statusText = "Scanning...";
+    private string _appResourceText = "CPU --  Mem --";
+    private TimeSpan _lastAppCpuTime;
+    private DateTimeOffset _lastAppMetricsAt;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -70,6 +78,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         UpdateScanTimerInterval();
         _timer.Tick += (_, _) => _ = RefreshPortsAsync();
         _timer.Start();
+
+        UpdateAppMetrics();
+        _appMetricsTimer.Interval = TimeSpan.FromSeconds(1);
+        _appMetricsTimer.Tick += (_, _) => UpdateAppMetrics();
+        _appMetricsTimer.Start();
 
         Loaded += async (_, _) => await RefreshPortsAsync();
         LocationChanged += (_, _) => ScheduleSettingsSave();
@@ -197,7 +210,63 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public string AppResourceText
+    {
+        get => _appResourceText;
+        private set
+        {
+            _appResourceText = value;
+            OnPropertyChanged(nameof(AppResourceText));
+        }
+    }
+
+    public string AppVersionText { get; } = $"v{GetAppVersion()}";
+
     public bool IsEmpty => FilteredEntries.IsEmpty;
+
+    private void UpdateAppMetrics()
+    {
+        try
+        {
+            using var process = Process.GetCurrentProcess();
+            var now = DateTimeOffset.UtcNow;
+            var totalCpu = process.TotalProcessorTime;
+            var memoryMb = process.WorkingSet64 / 1024d / 1024d;
+            var cpuText = "--";
+
+            if (_lastAppMetricsAt != default)
+            {
+                var elapsedMs = (now - _lastAppMetricsAt).TotalMilliseconds;
+                var cpuMs = (totalCpu - _lastAppCpuTime).TotalMilliseconds;
+                if (elapsedMs > 0)
+                {
+                    var cpuPercent = Math.Max(0, cpuMs / elapsedMs / Environment.ProcessorCount * 100);
+                    cpuText = $"{cpuPercent:0.0}%";
+                }
+            }
+
+            _lastAppMetricsAt = now;
+            _lastAppCpuTime = totalCpu;
+            AppResourceText = $"CPU {cpuText}  Mem {memoryMb:0} MB";
+        }
+        catch
+        {
+            AppResourceText = "CPU --  Mem --";
+        }
+    }
+
+    private static string GetAppVersion()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        var version = !string.IsNullOrWhiteSpace(informationalVersion)
+            ? informationalVersion
+            : assembly.GetName().Version?.ToString(3);
+
+        return string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Split('+')[0];
+    }
 
     private async Task RefreshPortsAsync()
     {
@@ -271,22 +340,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private Forms.NotifyIcon BuildTrayIcon()
     {
-        var menu = new Forms.ContextMenuStrip();
-        menu.Items.Add("Open PortLens", null, (_, _) => ShowMainWindow());
-        menu.Items.Add("Refresh", null, async (_, _) => await RefreshPortsAsync());
-        menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Exit", null, (_, _) =>
-        {
-            _isExiting = true;
-            SaveSettings();
-            Close();
-        });
-
         var icon = new Forms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
             Text = "PortLens",
-            ContextMenuStrip = menu,
             Visible = true
         };
         icon.MouseClick += (_, args) =>
@@ -296,8 +353,120 @@ public partial class MainWindow : Window, INotifyPropertyChanged
                 ShowMainWindow();
             }
         };
+        icon.MouseUp += (_, args) =>
+        {
+            if (args.Button == Forms.MouseButtons.Right)
+            {
+                Dispatcher.Invoke(ShowTrayContextMenu);
+            }
+        };
         return icon;
     }
+
+    private void ShowTrayContextMenu()
+    {
+        CloseTrayContextMenu();
+        SetForegroundWindow(new WindowInteropHelper(this).EnsureHandle());
+
+        var cursor = Forms.Cursor.Position;
+        var menu = new System.Windows.Controls.ContextMenu
+        {
+            PlacementTarget = this,
+            Placement = PlacementMode.AbsolutePoint,
+            HorizontalOffset = cursor.X,
+            VerticalOffset = cursor.Y,
+            MinWidth = 196,
+            Padding = new Thickness(4),
+            Focusable = true,
+            StaysOpen = false,
+            Background = new SolidColorBrush(WpfColor.FromRgb(247, 242, 236)),
+            BorderBrush = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206)),
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(45, 38, 34)),
+            FontSize = 13
+        };
+
+        menu.Items.Add(BuildTrayMenuItem("Open PortLens", PackIconKind.OpenInApp, (_, _) => ShowMainWindow()));
+        menu.Items.Add(BuildTrayMenuItem("Refresh", PackIconKind.Refresh, async (_, _) => await RefreshPortsAsync()));
+        menu.Items.Add(new Separator
+        {
+            Margin = new Thickness(6, 4, 6, 4),
+            Background = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206))
+        });
+        menu.Items.Add(BuildTrayMenuItem("Exit", PackIconKind.ExitToApp, (_, _) => ExitApplication(), isDestructive: true));
+
+        menu.Closed += (_, _) =>
+        {
+            if (ReferenceEquals(_trayContextMenu, menu))
+            {
+                _trayContextMenu = null;
+            }
+        };
+        _trayContextMenu = menu;
+        menu.IsOpen = true;
+        menu.Focus();
+    }
+
+    private void CloseTrayContextMenu()
+    {
+        if (_trayContextMenu is null)
+        {
+            return;
+        }
+
+        _trayContextMenu.IsOpen = false;
+        _trayContextMenu = null;
+    }
+
+    private static System.Windows.Controls.MenuItem BuildTrayMenuItem(string text, PackIconKind iconKind, RoutedEventHandler click, bool isDestructive = false)
+    {
+        var foreground = isDestructive
+            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
+            : new SolidColorBrush(WpfColor.FromRgb(95, 55, 190));
+        var labelBrush = isDestructive
+            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
+            : new SolidColorBrush(WpfColor.FromRgb(45, 38, 34));
+
+        var header = new StackPanel
+        {
+            Orientation = WpfOrientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        header.Children.Add(new PackIcon
+        {
+            Kind = iconKind,
+            Width = 17,
+            Height = 17,
+            Foreground = foreground,
+            Margin = new Thickness(0, 0, 10, 0),
+            VerticalAlignment = VerticalAlignment.Center
+        });
+        header.Children.Add(new TextBlock
+        {
+            Text = text,
+            Foreground = labelBrush,
+            VerticalAlignment = VerticalAlignment.Center
+        });
+
+        var item = new System.Windows.Controls.MenuItem
+        {
+            Header = header,
+            Height = 34,
+            Padding = new Thickness(12, 0, 12, 0)
+        };
+        item.Click += click;
+        return item;
+    }
+
+    private void ExitApplication()
+    {
+        _isExiting = true;
+        SaveSettings();
+        Close();
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
 
     private static System.Drawing.Icon LoadTrayIcon()
     {

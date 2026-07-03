@@ -119,6 +119,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <materialDesign:PackIcon Grid.Column="0"
                                          Kind="Radar"
@@ -131,7 +132,31 @@
                            Text="{Binding StatusText}"
                            Foreground="#7C716A"
                            FontSize="13"
-                           VerticalAlignment="Center" />
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+                <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="16,0,0,0">
+                    <materialDesign:PackIcon Kind="ChartTimelineVariant"
+                                             Width="15"
+                                             Height="15"
+                                             Foreground="#8A7F76"
+                                             Margin="0,0,5,0"
+                                             VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding AppResourceText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="  ·  "
+                               Foreground="#B5AAA1"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding AppVersionText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                </StackPanel>
             </Grid>
         </Border>
 
