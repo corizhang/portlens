@@ -10,6 +10,7 @@ internal sealed class SettingsDialogResult
     public bool RememberWindowPlacement { get; init; } = true;
     public bool CloseToTray { get; init; } = true;
     public bool GroupByProject { get; init; } = true;
+    public bool ShowAppMetrics { get; init; } = true;
     public IReadOnlyList<int> ExcludedPorts { get; init; } = [];
     public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
 }

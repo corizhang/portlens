@@ -82,11 +82,19 @@ internal static class ProjectRootResolver
         try
         {
             return Directory.Exists(Path.Combine(directory.FullName, ".git"))
+                || Directory.Exists(Path.Combine(directory.FullName, ".idea"))
+                || Directory.Exists(Path.Combine(directory.FullName, ".vscode"))
                 || File.Exists(Path.Combine(directory.FullName, "pnpm-workspace.yaml"))
                 || File.Exists(Path.Combine(directory.FullName, "turbo.json"))
                 || File.Exists(Path.Combine(directory.FullName, "nx.json"))
                 || File.Exists(Path.Combine(directory.FullName, "lerna.json"))
                 || File.Exists(Path.Combine(directory.FullName, "docker-compose.yml"))
+                || File.Exists(Path.Combine(directory.FullName, "go.mod"))
+                || File.Exists(Path.Combine(directory.FullName, "pyproject.toml"))
+                || File.Exists(Path.Combine(directory.FullName, "Cargo.toml"))
+                || File.Exists(Path.Combine(directory.FullName, "composer.json"))
+                || File.Exists(Path.Combine(directory.FullName, "deno.json"))
+                || File.Exists(Path.Combine(directory.FullName, "bun.lockb"))
                 || Directory.EnumerateFiles(directory.FullName, "*.sln").Any()
                 || PackageJsonHasWorkspaces(Path.Combine(directory.FullName, "package.json"));
         }

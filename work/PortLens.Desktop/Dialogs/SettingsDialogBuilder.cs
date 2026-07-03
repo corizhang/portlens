@@ -21,6 +21,7 @@ internal sealed class SettingsDialogBuilder
     private readonly bool _rememberWindowPlacement;
     private readonly bool _closeToTray;
     private readonly bool _groupByProject;
+    private readonly bool _showAppMetrics;
     private readonly IReadOnlySet<int> _excludedPorts;
     private readonly IReadOnlySet<string> _enabledFrameworks;
 
@@ -30,6 +31,7 @@ internal sealed class SettingsDialogBuilder
         bool rememberWindowPlacement,
         bool closeToTray,
         bool groupByProject,
+        bool showAppMetrics,
         IReadOnlySet<int> excludedPorts,
         IReadOnlySet<string> enabledFrameworks)
     {
@@ -38,6 +40,7 @@ internal sealed class SettingsDialogBuilder
         _rememberWindowPlacement = rememberWindowPlacement;
         _closeToTray = closeToTray;
         _groupByProject = groupByProject;
+        _showAppMetrics = showAppMetrics;
         _excludedPorts = excludedPorts;
         _enabledFrameworks = enabledFrameworks;
     }
@@ -83,7 +86,8 @@ internal sealed class SettingsDialogBuilder
             out var refreshInterval,
             out var rememberPlacement,
             out var closeToTray,
-            out var groupByProject);
+            out var groupByProject,
+            out var showAppMetrics);
         var frameworkToggles = BuildFrameworkRulesSection();
         var blacklist = BuildBlacklistSection();
 
@@ -137,6 +141,7 @@ internal sealed class SettingsDialogBuilder
             rememberPlacement,
             closeToTray,
             groupByProject,
+            showAppMetrics,
             frameworkToggles,
             blacklist);
         Grid.SetRow(actions, 2);
@@ -150,7 +155,8 @@ internal sealed class SettingsDialogBuilder
         out WpfComboBox refreshInterval,
         out ToggleButton rememberPlacement,
         out ToggleButton closeToTray,
-        out ToggleButton groupByProject)
+        out ToggleButton groupByProject,
+        out ToggleButton showAppMetrics)
     {
         var general = new StackPanel
         {
@@ -213,6 +219,14 @@ internal sealed class SettingsDialogBuilder
         };
         general.Children.Add(BuildSettingRow("Group by project", "Group sibling services by inferred project root.", groupByProject));
 
+        showAppMetrics = new ToggleButton
+        {
+            IsChecked = _showAppMetrics,
+            Style = FindStyle("MaterialDesignSwitchToggleButton"),
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        general.Children.Add(BuildSettingRow("Status metrics", "Show PortLens CPU and memory in the status bar.", showAppMetrics));
+
         general.Children.Add(new TextBlock
         {
             Text = "PortLens - local development port monitor",
@@ -230,6 +244,7 @@ internal sealed class SettingsDialogBuilder
         ToggleButton rememberPlacement,
         ToggleButton closeToTray,
         ToggleButton groupByProject,
+        ToggleButton showAppMetrics,
         SettingsSection frameworkToggles,
         BlacklistSection blacklist)
     {
@@ -284,6 +299,7 @@ internal sealed class SettingsDialogBuilder
                 RememberWindowPlacement = rememberPlacement.IsChecked == true,
                 CloseToTray = closeToTray.IsChecked == true,
                 GroupByProject = groupByProject.IsChecked == true,
+                ShowAppMetrics = showAppMetrics.IsChecked == true,
                 EnabledFrameworks = frameworkToggles.GetEnabledFrameworks(),
                 ExcludedPorts = blacklist.GetExcludedPorts()
             };

@@ -10,6 +10,7 @@ internal sealed class DesktopSettings
     public bool RememberWindowPlacement { get; set; } = true;
     public bool CloseToTray { get; set; } = true;
     public bool GroupByProject { get; set; } = true;
+    public bool ShowAppMetrics { get; set; } = true;
     public List<int> ExcludedPorts { get; set; } = [];
     public List<string> EnabledFrameworks { get; set; } = [.. DefaultEnabledFrameworks];
     public double? WindowLeft { get; set; }

@@ -40,12 +40,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private bool _rememberWindowPlacement = true;
     private bool _closeToTray = true;
     private bool _groupByProject = true;
+    private bool _showAppMetrics = true;
+    private bool _isScanPaused;
     private bool _isExiting;
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
     private string _searchText = "";
     private string _statusText = "Scanning...";
+    private string _serviceCountText = "0 services";
+    private string _lastScanText = "Scan --:--:--";
     private string _appResourceText = "CPU --  Mem --";
+    private DateTime? _lastScanAt;
     private TimeSpan _lastAppCpuTime;
     private DateTimeOffset _lastAppMetricsAt;
 
@@ -63,7 +68,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         ApplyGrouping();
 
         _entryActions = new PortEntryActionService(_scanner, ShowSnackbar, RefreshPortsAsync);
-        _trayIcon = new TrayIconService(this, ShowMainWindow, RefreshPortsAsync, ExitApplication);
+        _trayIcon = new TrayIconService(
+            this,
+            ShowMainWindow,
+            RefreshPortsAsync,
+            ShowSettingsDialogAsync,
+            ToggleScanPaused,
+            CopyPortSummary,
+            GetTrayStatus,
+            ExitApplication);
 
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
         _settingsSaveTimer.Tick += (_, _) =>
@@ -197,6 +210,38 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    public bool ShowAppMetrics
+    {
+        get => _showAppMetrics;
+        set
+        {
+            if (_showAppMetrics == value)
+            {
+                return;
+            }
+
+            _showAppMetrics = value;
+            OnPropertyChanged(nameof(ShowAppMetrics));
+            ScheduleSettingsSave();
+        }
+    }
+
+    public bool IsScanPaused
+    {
+        get => _isScanPaused;
+        private set
+        {
+            if (_isScanPaused == value)
+            {
+                return;
+            }
+
+            _isScanPaused = value;
+            UpdateScanTimerInterval();
+            OnPropertyChanged(nameof(IsScanPaused));
+        }
+    }
+
     public string StatusText
     {
         get => _statusText;
@@ -204,6 +249,26 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             _statusText = value;
             OnPropertyChanged(nameof(StatusText));
+        }
+    }
+
+    public string ServiceCountText
+    {
+        get => _serviceCountText;
+        private set
+        {
+            _serviceCountText = value;
+            OnPropertyChanged(nameof(ServiceCountText));
+        }
+    }
+
+    public string LastScanText
+    {
+        get => _lastScanText;
+        private set
+        {
+            _lastScanText = value;
+            OnPropertyChanged(nameof(LastScanText));
         }
     }
 
@@ -272,6 +337,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
+        if (IsScanPaused)
+        {
+            StatusText = "Scanning paused.";
+            return;
+        }
+
         _isRefreshing = true;
         StatusText = "Scanning in background...";
         var showAll = ShowSystemPorts;
@@ -286,9 +357,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             };
             var entries = await Task.Run(() => _scanner.Scan(options));
             ApplyEntries(entries);
+            _lastScanAt = DateTime.Now;
+            ServiceCountText = showAll
+                ? $"{_entries.Count} ports"
+                : $"{_entries.Count} services";
+            LastScanText = $"Scan {_lastScanAt:HH:mm:ss}";
             StatusText = showAll
-                ? $"{_entries.Count} local listening ports - {DateTime.Now:HH:mm:ss}"
-                : $"{_entries.Count} development services - {DateTime.Now:HH:mm:ss}";
+                ? "Local listening ports"
+                : "Development services";
         }
         catch (Exception ex)
         {
@@ -356,6 +432,76 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Activate();
     }
 
+    private async Task ShowSettingsDialogAsync()
+    {
+        var result = await DialogHost.Show(BuildSettingsDialog(), "RootDialog");
+        if (result is not SettingsDialogResult dialogResult)
+        {
+            return;
+        }
+
+        if (dialogResult.Reset)
+        {
+            ApplyDefaultSettings();
+            SaveSettings();
+            _ = RefreshPortsAsync();
+            return;
+        }
+
+        ShowSystemPorts = dialogResult.ShowSystemPorts;
+        RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
+        RememberWindowPlacement = dialogResult.RememberWindowPlacement;
+        CloseToTray = dialogResult.CloseToTray;
+        GroupByProject = dialogResult.GroupByProject;
+        ShowAppMetrics = dialogResult.ShowAppMetrics;
+        _excludedPorts = NormalizeExcludedPorts(dialogResult.ExcludedPorts);
+        _enabledFrameworks = NormalizeEnabledFrameworks(dialogResult.EnabledFrameworks);
+        SaveSettings();
+        _ = RefreshPortsAsync();
+    }
+
+    private void ToggleScanPaused()
+    {
+        IsScanPaused = !IsScanPaused;
+        StatusText = IsScanPaused ? "Scanning paused." : "Scanning resumed.";
+        if (!IsScanPaused)
+        {
+            _ = RefreshPortsAsync();
+        }
+    }
+
+    private void CopyPortSummary()
+    {
+        var lines = _entries
+            .Select(entry => $"{entry.PortText} {entry.DisplayName} | {entry.FrameworkText} | PID {entry.ProcessId} | {entry.Url}")
+            .ToArray();
+
+        if (lines.Length == 0)
+        {
+            ShowSnackbar("No services to copy.");
+            return;
+        }
+
+        try
+        {
+            System.Windows.Clipboard.SetText(string.Join(Environment.NewLine, lines));
+            ShowSnackbar($"Copied {lines.Length} port summaries.");
+        }
+        catch (Exception ex)
+        {
+            ShowSnackbar($"Copy failed: {ex.Message}");
+        }
+    }
+
+    private TrayStatusSnapshot GetTrayStatus()
+    {
+        return new TrayStatusSnapshot(
+            _entries.Count,
+            _lastScanAt,
+            IsScanPaused,
+            ShowSystemPorts);
+    }
+
     private void ExitApplication()
     {
         _isExiting = true;
@@ -374,6 +520,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
             _closeToTray = _settings.CloseToTray;
             _groupByProject = _settings.GroupByProject;
+            _showAppMetrics = _settings.ShowAppMetrics;
             _excludedPorts = NormalizeExcludedPorts(_settings.ExcludedPorts);
             _enabledFrameworks = NormalizeEnabledFrameworks(_settings.EnabledFrameworks);
 
@@ -449,6 +596,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _settings.RememberWindowPlacement = RememberWindowPlacement;
         _settings.CloseToTray = CloseToTray;
         _settings.GroupByProject = GroupByProject;
+        _settings.ShowAppMetrics = ShowAppMetrics;
         _settings.ExcludedPorts = _excludedPorts.Order().ToList();
         _settings.EnabledFrameworks = _enabledFrameworks
             .OrderBy(framework => Array.IndexOf(DesktopSettings.DefaultEnabledFrameworks, framework))
@@ -493,9 +641,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void UpdateScanTimerInterval()
     {
         var foregroundInterval = TimeSpan.FromSeconds(RefreshIntervalSeconds);
+        if (IsScanPaused)
+        {
+            _timer.Stop();
+            return;
+        }
+
         _timer.Interval = IsVisible && WindowState != WindowState.Minimized
             ? foregroundInterval
             : Max(foregroundInterval, BackgroundRefreshInterval);
+        if (!_timer.IsEnabled)
+        {
+            _timer.Start();
+        }
     }
 
     private static TimeSpan Max(TimeSpan first, TimeSpan second)
@@ -530,31 +688,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         await ShowSettingsDialogAsync();
     }
 
-    private async Task ShowSettingsDialogAsync()
+    private async void StatusBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
-        var result = await DialogHost.Show(BuildSettingsDialog(), "RootDialog");
-        if (result is not SettingsDialogResult dialogResult)
-        {
-            return;
-        }
-
-        if (dialogResult.Reset)
-        {
-            ApplyDefaultSettings();
-            SaveSettings();
-            _ = RefreshPortsAsync();
-            return;
-        }
-
-        ShowSystemPorts = dialogResult.ShowSystemPorts;
-        RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
-        RememberWindowPlacement = dialogResult.RememberWindowPlacement;
-        CloseToTray = dialogResult.CloseToTray;
-        GroupByProject = dialogResult.GroupByProject;
-        _excludedPorts = NormalizeExcludedPorts(dialogResult.ExcludedPorts);
-        _enabledFrameworks = NormalizeEnabledFrameworks(dialogResult.EnabledFrameworks);
-        SaveSettings();
-        _ = RefreshPortsAsync();
+        await ShowSettingsDialogAsync();
     }
 
     private FrameworkElement BuildSettingsDialog()
@@ -565,6 +701,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             RememberWindowPlacement,
             CloseToTray,
             GroupByProject,
+            ShowAppMetrics,
             _excludedPorts,
             _enabledFrameworks).Build();
     }
@@ -577,6 +714,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         RememberWindowPlacement = true;
         CloseToTray = true;
         GroupByProject = true;
+        ShowAppMetrics = true;
         _excludedPorts.Clear();
         _enabledFrameworks = NormalizeEnabledFrameworks(DesktopSettings.DefaultEnabledFrameworks);
         _settings.WindowLeft = null;

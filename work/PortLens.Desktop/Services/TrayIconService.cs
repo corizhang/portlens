@@ -16,16 +16,32 @@ internal sealed class TrayIconService : IDisposable
     private readonly Window _owner;
     private readonly Action _showMainWindow;
     private readonly Func<Task> _refreshAsync;
+    private readonly Func<Task> _showSettingsAsync;
+    private readonly Action _toggleScanPaused;
+    private readonly Action _copyPortSummary;
+    private readonly Func<TrayStatusSnapshot> _getStatus;
     private readonly Action _exitApplication;
     private readonly Forms.NotifyIcon _notifyIcon;
     private System.Windows.Controls.ContextMenu? _contextMenu;
     private bool _disposed;
 
-    public TrayIconService(Window owner, Action showMainWindow, Func<Task> refreshAsync, Action exitApplication)
+    public TrayIconService(
+        Window owner,
+        Action showMainWindow,
+        Func<Task> refreshAsync,
+        Func<Task> showSettingsAsync,
+        Action toggleScanPaused,
+        Action copyPortSummary,
+        Func<TrayStatusSnapshot> getStatus,
+        Action exitApplication)
     {
         _owner = owner;
         _showMainWindow = showMainWindow;
         _refreshAsync = refreshAsync;
+        _showSettingsAsync = showSettingsAsync;
+        _toggleScanPaused = toggleScanPaused;
+        _copyPortSummary = copyPortSummary;
+        _getStatus = getStatus;
         _exitApplication = exitApplication;
         _notifyIcon = BuildNotifyIcon();
     }
@@ -86,7 +102,7 @@ internal sealed class TrayIconService : IDisposable
             Placement = PlacementMode.AbsolutePoint,
             HorizontalOffset = cursor.X,
             VerticalOffset = cursor.Y,
-            MinWidth = 196,
+            MinWidth = 230,
             Padding = new Thickness(4),
             Focusable = true,
             StaysOpen = false,
@@ -96,13 +112,18 @@ internal sealed class TrayIconService : IDisposable
             FontSize = 13
         };
 
+        var status = _getStatus();
+        menu.Items.Add(BuildStatusHeader(status));
+        menu.Items.Add(BuildSeparator());
         menu.Items.Add(BuildMenuItem("Open PortLens", PackIconKind.OpenInApp, (_, _) => _showMainWindow()));
-        menu.Items.Add(BuildMenuItem("Refresh", PackIconKind.Refresh, async (_, _) => await _refreshAsync()));
-        menu.Items.Add(new Separator
-        {
-            Margin = new Thickness(6, 4, 6, 4),
-            Background = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206))
-        });
+        menu.Items.Add(BuildMenuItem("Settings", PackIconKind.CogOutline, async (_, _) => await _showSettingsAsync()));
+        menu.Items.Add(BuildMenuItem(
+            status.IsPaused ? "Resume scanning" : "Pause scanning",
+            status.IsPaused ? PackIconKind.PlayOutline : PackIconKind.Pause,
+            (_, _) => _toggleScanPaused()));
+        menu.Items.Add(BuildMenuItem("Refresh", PackIconKind.Refresh, async (_, _) => await _refreshAsync(), isEnabled: !status.IsPaused));
+        menu.Items.Add(BuildMenuItem("Copy port summary", PackIconKind.ContentCopy, (_, _) => _copyPortSummary(), isEnabled: status.ServiceCount > 0));
+        menu.Items.Add(BuildSeparator());
         menu.Items.Add(BuildMenuItem("Exit", PackIconKind.ExitToApp, (_, _) => _exitApplication(), isDestructive: true));
 
         menu.Closed += (_, _) =>
@@ -117,6 +138,48 @@ internal sealed class TrayIconService : IDisposable
         menu.Focus();
     }
 
+    private static Border BuildStatusHeader(TrayStatusSnapshot status)
+    {
+        var panel = new StackPanel
+        {
+            Margin = new Thickness(12, 8, 12, 8)
+        };
+        panel.Children.Add(new TextBlock
+        {
+            Text = status.ShowAllPorts
+                ? $"{status.ServiceCount} listening ports"
+                : $"{status.ServiceCount} development services",
+            FontSize = 13,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(45, 38, 34))
+        });
+        panel.Children.Add(new TextBlock
+        {
+            Text = status.IsPaused
+                ? "Scanning paused"
+                : status.LastScanAt is { } lastScanAt
+                    ? $"Last scan {lastScanAt:HH:mm:ss}"
+                    : "Not scanned yet",
+            FontSize = 12,
+            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            Margin = new Thickness(0, 3, 0, 0)
+        });
+
+        return new Border
+        {
+            Child = panel
+        };
+    }
+
+    private static Separator BuildSeparator()
+    {
+        return new Separator
+        {
+            Margin = new Thickness(6, 4, 6, 4),
+            Background = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206))
+        };
+    }
+
     private void CloseContextMenu()
     {
         if (_contextMenu is null)
@@ -128,7 +191,12 @@ internal sealed class TrayIconService : IDisposable
         _contextMenu = null;
     }
 
-    private static System.Windows.Controls.MenuItem BuildMenuItem(string text, PackIconKind iconKind, RoutedEventHandler click, bool isDestructive = false)
+    private static System.Windows.Controls.MenuItem BuildMenuItem(
+        string text,
+        PackIconKind iconKind,
+        RoutedEventHandler click,
+        bool isDestructive = false,
+        bool isEnabled = true)
     {
         var foreground = isDestructive
             ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
@@ -162,7 +230,8 @@ internal sealed class TrayIconService : IDisposable
         {
             Header = header,
             Height = 34,
-            Padding = new Thickness(12, 0, 12, 0)
+            Padding = new Thickness(12, 0, 12, 0),
+            IsEnabled = isEnabled
         };
         item.Click += click;
         return item;
@@ -180,3 +249,5 @@ internal sealed class TrayIconService : IDisposable
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
 }
+
+internal sealed record TrayStatusSnapshot(int ServiceCount, DateTime? LastScanAt, bool IsPaused, bool ShowAllPorts);

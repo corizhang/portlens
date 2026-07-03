@@ -114,7 +114,10 @@
                 Background="#F7F2EC"
                 BorderBrush="#E2D8CE"
                 BorderThickness="0,1,0,0"
-                Padding="24,8,24,8">
+                Padding="24,8,24,8"
+                Cursor="Hand"
+                ToolTip="Open settings"
+                MouseLeftButtonUp="StatusBar_MouseLeftButtonUp">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -135,6 +138,50 @@
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis" />
                 <StackPanel Grid.Column="2"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="16,0,0,0">
+                    <TextBlock Text="{Binding ServiceCountText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="  |  "
+                               Foreground="#B5AAA1"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding LastScanText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="  |  "
+                               Foreground="#B5AAA1"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding ShowAppMetrics, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <materialDesign:PackIcon Kind="ChartTimelineVariant"
+                                             Width="15"
+                                             Height="15"
+                                             Foreground="#8A7F76"
+                                             Margin="0,0,5,0"
+                                             VerticalAlignment="Center"
+                                             Visibility="{Binding ShowAppMetrics, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <TextBlock Text="{Binding AppResourceText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding ShowAppMetrics, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <TextBlock Text="  |  "
+                               Foreground="#B5AAA1"
+                               FontSize="13"
+                               VerticalAlignment="Center"
+                               Visibility="{Binding ShowAppMetrics, Converter={StaticResource BoolToVisibilityConverter}}" />
+                    <TextBlock Text="{Binding AppVersionText}"
+                               Foreground="#7C716A"
+                               FontSize="13"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="2"
+                            Visibility="Collapsed"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
                             Margin="16,0,0,0">
