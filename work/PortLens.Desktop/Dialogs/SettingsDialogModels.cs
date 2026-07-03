@@ -15,6 +15,14 @@ internal sealed class SettingsDialogResult
     public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
 }
 
-internal sealed record SettingsSection(FrameworkElement View, Func<IReadOnlyList<string>> GetEnabledFrameworks);
-
-internal sealed record BlacklistSection(FrameworkElement View, Func<IReadOnlyList<int>> GetExcludedPorts);
+internal sealed class SettingsDialogState
+{
+    public bool ShowSystemPorts { get; init; }
+    public int RefreshIntervalSeconds { get; init; } = 5;
+    public bool RememberWindowPlacement { get; init; } = true;
+    public bool CloseToTray { get; init; } = true;
+    public bool GroupByProject { get; init; } = true;
+    public bool ShowAppMetrics { get; init; } = true;
+    public IReadOnlySet<int> ExcludedPorts { get; init; } = new HashSet<int>();
+    public IReadOnlySet<string> EnabledFrameworks { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+}

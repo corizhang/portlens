@@ -695,15 +695,17 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private FrameworkElement BuildSettingsDialog()
     {
-        return new SettingsDialogBuilder(
-            ShowSystemPorts,
-            RefreshIntervalSeconds,
-            RememberWindowPlacement,
-            CloseToTray,
-            GroupByProject,
-            ShowAppMetrics,
-            _excludedPorts,
-            _enabledFrameworks).Build();
+        return new SettingsDialog(new SettingsDialogState
+        {
+            ShowSystemPorts = ShowSystemPorts,
+            RefreshIntervalSeconds = RefreshIntervalSeconds,
+            RememberWindowPlacement = RememberWindowPlacement,
+            CloseToTray = CloseToTray,
+            GroupByProject = GroupByProject,
+            ShowAppMetrics = ShowAppMetrics,
+            ExcludedPorts = _excludedPorts,
+            EnabledFrameworks = _enabledFrameworks
+        });
     }
 
     private void ApplyDefaultSettings()
