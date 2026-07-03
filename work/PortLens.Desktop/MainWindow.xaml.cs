@@ -2,20 +2,20 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Threading;
-using Forms = System.Windows.Forms;
 using MaterialDesignThemes.Wpf;
+using PortLens.Desktop.Dialogs;
+using PortLens.Desktop.Services;
 using PortLens.Models;
 using PortLens.Services;
 using PortLens.Desktop.Settings;
+using PortLens.Desktop.ViewModels;
 using WpfButton = System.Windows.Controls.Button;
 using WpfColor = System.Windows.Media.Color;
 using WpfHorizontalAlignment = System.Windows.HorizontalAlignment;
@@ -30,10 +30,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private readonly DispatcherTimer _appMetricsTimer = new();
     private readonly DispatcherTimer _settingsSaveTimer = new();
     private readonly DesktopSettingsStore _settingsStore = new();
-    private readonly Forms.NotifyIcon _notifyIcon;
+    private readonly TrayIconService _trayIcon;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
-    private System.Windows.Controls.ContextMenu? _trayContextMenu;
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     public SnackbarMessageQueue SnackbarMessageQueue { get; } = new(TimeSpan.FromSeconds(3));
     private DesktopSettings _settings = new();
@@ -66,7 +65,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FilteredEntries.Filter = item => item is PortEntryViewModel entry && Matches(entry);
         ApplyGrouping();
 
-        _notifyIcon = BuildTrayIcon();
+        _trayIcon = new TrayIconService(this, ShowMainWindow, RefreshPortsAsync, ExitApplication);
 
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
         _settingsSaveTimer.Tick += (_, _) =>
@@ -338,151 +337,12 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         OnPropertyChanged(nameof(IsEmpty));
     }
 
-    private Forms.NotifyIcon BuildTrayIcon()
-    {
-        var icon = new Forms.NotifyIcon
-        {
-            Icon = LoadTrayIcon(),
-            Text = "PortLens",
-            Visible = true
-        };
-        icon.MouseClick += (_, args) =>
-        {
-            if (args.Button == Forms.MouseButtons.Left)
-            {
-                ShowMainWindow();
-            }
-        };
-        icon.MouseUp += (_, args) =>
-        {
-            if (args.Button == Forms.MouseButtons.Right)
-            {
-                Dispatcher.Invoke(ShowTrayContextMenu);
-            }
-        };
-        return icon;
-    }
-
-    private void ShowTrayContextMenu()
-    {
-        CloseTrayContextMenu();
-        SetForegroundWindow(new WindowInteropHelper(this).EnsureHandle());
-
-        var cursor = Forms.Cursor.Position;
-        var menu = new System.Windows.Controls.ContextMenu
-        {
-            PlacementTarget = this,
-            Placement = PlacementMode.AbsolutePoint,
-            HorizontalOffset = cursor.X,
-            VerticalOffset = cursor.Y,
-            MinWidth = 196,
-            Padding = new Thickness(4),
-            Focusable = true,
-            StaysOpen = false,
-            Background = new SolidColorBrush(WpfColor.FromRgb(247, 242, 236)),
-            BorderBrush = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206)),
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(45, 38, 34)),
-            FontSize = 13
-        };
-
-        menu.Items.Add(BuildTrayMenuItem("Open PortLens", PackIconKind.OpenInApp, (_, _) => ShowMainWindow()));
-        menu.Items.Add(BuildTrayMenuItem("Refresh", PackIconKind.Refresh, async (_, _) => await RefreshPortsAsync()));
-        menu.Items.Add(new Separator
-        {
-            Margin = new Thickness(6, 4, 6, 4),
-            Background = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206))
-        });
-        menu.Items.Add(BuildTrayMenuItem("Exit", PackIconKind.ExitToApp, (_, _) => ExitApplication(), isDestructive: true));
-
-        menu.Closed += (_, _) =>
-        {
-            if (ReferenceEquals(_trayContextMenu, menu))
-            {
-                _trayContextMenu = null;
-            }
-        };
-        _trayContextMenu = menu;
-        menu.IsOpen = true;
-        menu.Focus();
-    }
-
-    private void CloseTrayContextMenu()
-    {
-        if (_trayContextMenu is null)
-        {
-            return;
-        }
-
-        _trayContextMenu.IsOpen = false;
-        _trayContextMenu = null;
-    }
-
-    private static System.Windows.Controls.MenuItem BuildTrayMenuItem(string text, PackIconKind iconKind, RoutedEventHandler click, bool isDestructive = false)
-    {
-        var foreground = isDestructive
-            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
-            : new SolidColorBrush(WpfColor.FromRgb(95, 55, 190));
-        var labelBrush = isDestructive
-            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
-            : new SolidColorBrush(WpfColor.FromRgb(45, 38, 34));
-
-        var header = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        header.Children.Add(new PackIcon
-        {
-            Kind = iconKind,
-            Width = 17,
-            Height = 17,
-            Foreground = foreground,
-            Margin = new Thickness(0, 0, 10, 0),
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        header.Children.Add(new TextBlock
-        {
-            Text = text,
-            Foreground = labelBrush,
-            VerticalAlignment = VerticalAlignment.Center
-        });
-
-        var item = new System.Windows.Controls.MenuItem
-        {
-            Header = header,
-            Height = 34,
-            Padding = new Thickness(12, 0, 12, 0)
-        };
-        item.Click += click;
-        return item;
-    }
-
-    private void ExitApplication()
-    {
-        _isExiting = true;
-        SaveSettings();
-        Close();
-    }
-
-    [DllImport("user32.dll")]
-    [return: MarshalAs(UnmanagedType.Bool)]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-
-    private static System.Drawing.Icon LoadTrayIcon()
-    {
-        var resource = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Assets/portlens-icon.ico"));
-        return resource is not null
-            ? new System.Drawing.Icon(resource.Stream)
-            : System.Drawing.SystemIcons.Application;
-    }
-
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         SaveSettings();
         if (_isExiting || !CloseToTray)
         {
-            _notifyIcon.Visible = false;
-            _notifyIcon.Dispose();
+            _trayIcon.Dispose();
             return;
         }
 
@@ -496,6 +356,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         WindowState = WindowState.Normal;
         UpdateScanTimerInterval();
         Activate();
+    }
+
+    private void ExitApplication()
+    {
+        _isExiting = true;
+        SaveSettings();
+        Close();
     }
 
     private void ApplyPersistedSettings()
@@ -694,286 +561,14 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private FrameworkElement BuildSettingsDialog()
     {
-        var shell = new Grid
-        {
-            Width = 560,
-            MaxHeight = 680,
-            Margin = new Thickness(24)
-        };
-        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        shell.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-        shell.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-
-        var header = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 16)
-        };
-        header.Children.Add(new PackIcon
-        {
-            Kind = PackIconKind.CogOutline,
-            Width = 28,
-            Height = 28,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(103, 58, 183)),
-            Margin = new Thickness(0, 0, 12, 0)
-        });
-        header.Children.Add(new TextBlock
-        {
-            Text = "Settings",
-            FontSize = 20,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(34, 27, 24)),
-            VerticalAlignment = VerticalAlignment.Center
-        });
-        Grid.SetRow(header, 0);
-        shell.Children.Add(header);
-
-        var general = new StackPanel
-        {
-            Margin = new Thickness(0, 18, 0, 0)
-        };
-
-        var showSystemPorts = new ToggleButton
-        {
-            IsChecked = ShowSystemPorts,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        general.Children.Add(BuildSettingRow("System ports", "Include non-development listening ports.", showSystemPorts));
-
-        var refreshInterval = new System.Windows.Controls.ComboBox
-        {
-            Width = 128,
-            SelectedValue = RefreshIntervalSeconds,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedComboBox")
-        };
-        foreach (var seconds in new[] { 3, 5, 10, 30 })
-        {
-            refreshInterval.Items.Add(new ComboBoxItem
-            {
-                Content = $"{seconds} seconds",
-                Tag = seconds
-            });
-        }
-
-        refreshInterval.SelectedIndex = RefreshIntervalSeconds switch
-        {
-            3 => 0,
-            10 => 2,
-            30 => 3,
-            _ => 1
-        };
-        general.Children.Add(BuildSettingRow("Refresh interval", "How often PortLens scans in the background.", refreshInterval));
-
-        var rememberPlacement = new ToggleButton
-        {
-            IsChecked = RememberWindowPlacement,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        general.Children.Add(BuildSettingRow("Window placement", "Restore size and position on launch.", rememberPlacement));
-
-        var closeToTray = new ToggleButton
-        {
-            IsChecked = CloseToTray,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        general.Children.Add(BuildSettingRow("Close behavior", "Hide to tray when the close button is used.", closeToTray));
-
-        var groupByProject = new ToggleButton
-        {
-            IsChecked = GroupByProject,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignSwitchToggleButton"),
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        general.Children.Add(BuildSettingRow("Group by project", "Group sibling services by inferred project root.", groupByProject));
-
-        general.Children.Add(new TextBlock
-        {
-            Text = "PortLens - local development port monitor",
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-            FontSize = 12,
-            Margin = new Thickness(0, 18, 0, 0)
-        });
-
-        var frameworkToggles = BuildFrameworkRulesSection();
-        var blacklist = BuildBlacklistSection();
-
-        var tabHost = new Grid
-        {
-            MinHeight = 360
-        };
-        tabHost.RowDefinitions.Add(new RowDefinition { Height = GridLength.Auto });
-        tabHost.RowDefinitions.Add(new RowDefinition { Height = new GridLength(1, GridUnitType.Star) });
-
-        var tabButtons = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            Margin = new Thickness(0, 0, 0, 14)
-        };
-        var contentHost = new ContentControl();
-        var generalPage = new ScrollViewer
-        {
-            Content = general,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
-        var rulesPage = new ScrollViewer
-        {
-            Content = frameworkToggles.View,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        };
-        var blacklistPage = blacklist.View;
-
-        var generalTab = BuildSettingsTabButton("General");
-        var rulesTab = BuildSettingsTabButton("Rules");
-        var blacklistTab = BuildSettingsTabButton($"Blacklist ({_excludedPorts.Count})");
-        WpfButton[] tabs = [generalTab, rulesTab, blacklistTab];
-        generalTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, generalTab, generalPage);
-        rulesTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, rulesTab, rulesPage);
-        blacklistTab.Click += (_, _) => SelectSettingsTab(contentHost, tabs, blacklistTab, blacklistPage);
-        tabButtons.Children.Add(generalTab);
-        tabButtons.Children.Add(rulesTab);
-        tabButtons.Children.Add(blacklistTab);
-        Grid.SetRow(tabButtons, 0);
-        tabHost.Children.Add(tabButtons);
-        Grid.SetRow(contentHost, 1);
-        tabHost.Children.Add(contentHost);
-        SelectSettingsTab(contentHost, tabs, generalTab, generalPage);
-
-        Grid.SetRow(tabHost, 1);
-        shell.Children.Add(tabHost);
-
-        var actions = new Grid();
-        actions.Margin = new Thickness(0, 18, 0, 0);
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        actions.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var reset = new WpfButton
-        {
-            Content = "Reset",
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            MinWidth = 86,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(179, 38, 30)),
-            Command = DialogHost.CloseDialogCommand
-        };
-        reset.CommandParameter = new SettingsDialogResult
-        {
-            Reset = true
-        };
-        Grid.SetColumn(reset, 0);
-        actions.Children.Add(reset);
-
-        var rightActions = new StackPanel
-        {
-            Orientation = WpfOrientation.Horizontal,
-            HorizontalAlignment = WpfHorizontalAlignment.Right
-        };
-        var cancel = new WpfButton
-        {
-            Content = "Cancel",
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            Margin = new Thickness(0, 0, 8, 0),
-            MinWidth = 86,
-            Command = DialogHost.CloseDialogCommand
-        };
-        var save = new WpfButton
-        {
-            Content = "Save",
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            MinWidth = 86,
-            Command = DialogHost.CloseDialogCommand
-        };
-        save.Click += (_, _) =>
-        {
-            var selectedSeconds = refreshInterval.SelectedItem is ComboBoxItem { Tag: int seconds }
-                ? seconds
-                : 5;
-            save.CommandParameter = new SettingsDialogResult
-            {
-                ShowSystemPorts = showSystemPorts.IsChecked == true,
-                RefreshIntervalSeconds = selectedSeconds,
-                RememberWindowPlacement = rememberPlacement.IsChecked == true,
-                CloseToTray = closeToTray.IsChecked == true,
-                GroupByProject = groupByProject.IsChecked == true,
-                EnabledFrameworks = frameworkToggles.GetEnabledFrameworks(),
-                ExcludedPorts = blacklist.GetExcludedPorts()
-            };
-        };
-        rightActions.Children.Add(cancel);
-        rightActions.Children.Add(save);
-        Grid.SetColumn(rightActions, 1);
-        actions.Children.Add(rightActions);
-        Grid.SetRow(actions, 2);
-        shell.Children.Add(actions);
-
-        return shell;
-    }
-
-    private static WpfButton BuildSettingsTabButton(string label)
-    {
-        return new WpfButton
-        {
-            Content = label,
-            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-            MinWidth = 112,
-            Height = 34,
-            Margin = new Thickness(0, 0, 8, 0),
-            Padding = new Thickness(12, 0, 12, 0)
-        };
-    }
-
-    private static void SelectSettingsTab(ContentControl contentHost, IEnumerable<WpfButton> tabs, WpfButton selected, object content)
-    {
-        foreach (var tab in tabs)
-        {
-            tab.Background = System.Windows.Media.Brushes.Transparent;
-            tab.Foreground = new SolidColorBrush(WpfColor.FromRgb(103, 58, 183));
-        }
-
-        selected.Background = new SolidColorBrush(WpfColor.FromRgb(237, 230, 246));
-        selected.Foreground = new SolidColorBrush(WpfColor.FromRgb(54, 30, 97));
-        contentHost.Content = content;
-    }
-
-    private static Grid BuildSettingRow(string title, string description, UIElement control)
-    {
-        var row = new Grid
-        {
-            Margin = new Thickness(0, 0, 0, 14)
-        };
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-
-        var text = new StackPanel
-        {
-            Margin = new Thickness(0, 0, 20, 0)
-        };
-        text.Children.Add(new TextBlock
-        {
-            Text = title,
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38))
-        });
-        text.Children.Add(new TextBlock
-        {
-            Text = description,
-            FontSize = 12,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-            Margin = new Thickness(0, 3, 0, 0)
-        });
-        Grid.SetColumn(text, 0);
-        row.Children.Add(text);
-
-        var presenter = new ContentControl
-        {
-            Content = control,
-            VerticalAlignment = VerticalAlignment.Center
-        };
-        Grid.SetColumn(presenter, 1);
-        row.Children.Add(presenter);
-        return row;
+        return new SettingsDialogBuilder(
+            ShowSystemPorts,
+            RefreshIntervalSeconds,
+            RememberWindowPlacement,
+            CloseToTray,
+            GroupByProject,
+            _excludedPorts,
+            _enabledFrameworks).Build();
     }
 
     private void ApplyDefaultSettings()
@@ -1376,144 +971,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return normalized;
     }
 
-    private SettingsSection BuildFrameworkRulesSection()
-    {
-        var toggles = new Dictionary<string, ToggleButton>(StringComparer.OrdinalIgnoreCase);
-        var panel = new StackPanel
-        {
-            Margin = new Thickness(0, 10, 0, 14)
-        };
-        panel.Children.Add(new TextBlock
-        {
-            Text = "Development rules",
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
-            Margin = new Thickness(0, 0, 0, 8)
-        });
-        panel.Children.Add(new TextBlock
-        {
-            Text = "These rules decide which recognized services appear when System ports is off.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-            FontSize = 12,
-            Margin = new Thickness(0, 0, 0, 16)
-        });
-
-        var grid = new UniformGrid
-        {
-            Columns = 3
-        };
-        foreach (var framework in DesktopSettings.DefaultEnabledFrameworks)
-        {
-            var checkBox = new System.Windows.Controls.CheckBox
-            {
-                Content = framework,
-                IsChecked = _enabledFrameworks.Contains(framework),
-                Margin = new Thickness(0, 0, 10, 8)
-            };
-            toggles[framework] = checkBox;
-            grid.Children.Add(checkBox);
-        }
-
-        panel.Children.Add(grid);
-        return new SettingsSection(
-            panel,
-            () => toggles.Where(pair => pair.Value.IsChecked == true).Select(pair => pair.Key).ToList());
-    }
-
-    private BlacklistSection BuildBlacklistSection()
-    {
-        var draft = _excludedPorts.Order().ToList();
-        var panel = new DockPanel
-        {
-            Margin = new Thickness(0, 10, 0, 0),
-            LastChildFill = true
-        };
-        var heading = new StackPanel
-        {
-            Margin = new Thickness(0, 0, 0, 12)
-        };
-        heading.Children.Add(new TextBlock
-        {
-            Text = "Port blacklist",
-            FontSize = 14,
-            FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(48, 42, 38)),
-            Margin = new Thickness(0, 0, 0, 4)
-        });
-        heading.Children.Add(new TextBlock
-        {
-            Text = "Blacklisted ports stay hidden even when System ports is enabled.",
-            TextWrapping = TextWrapping.Wrap,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-            FontSize = 12
-        });
-        DockPanel.SetDock(heading, Dock.Top);
-        panel.Children.Add(heading);
-
-        var list = new StackPanel();
-        panel.Children.Add(new ScrollViewer
-        {
-            Content = list,
-            MaxHeight = 280,
-            VerticalScrollBarVisibility = ScrollBarVisibility.Auto
-        });
-
-        void Render()
-        {
-            list.Children.Clear();
-            if (draft.Count == 0)
-            {
-                list.Children.Add(new TextBlock
-                {
-                    Text = "No hidden ports.",
-                    Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
-                    FontSize = 12
-                });
-                return;
-            }
-
-            foreach (var port in draft.ToArray())
-            {
-                var row = new Grid
-                {
-                    Margin = new Thickness(0, 0, 0, 6)
-                };
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
-                row.Children.Add(new TextBlock
-                {
-                    Text = $":{port}",
-                    FontFamily = new System.Windows.Media.FontFamily("Consolas"),
-                    FontWeight = FontWeights.SemiBold,
-                    Foreground = new SolidColorBrush(WpfColor.FromRgb(63, 123, 200)),
-                    VerticalAlignment = VerticalAlignment.Center
-                });
-
-                var remove = new WpfButton
-                {
-                    Content = "Remove",
-                    Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
-                    MinWidth = 76,
-                    Height = 28,
-                    Padding = new Thickness(8, 0, 8, 0)
-                };
-                remove.Click += (_, _) =>
-                {
-                    draft.Remove(port);
-                    Render();
-                };
-                Grid.SetColumn(remove, 1);
-                row.Children.Add(remove);
-                list.Children.Add(row);
-            }
-        }
-
-        Render();
-        return new BlacklistSection(panel, () => draft.ToList());
-    }
-
     private bool Matches(PortEntryViewModel entry)
     {
         if (string.IsNullOrWhiteSpace(SearchText))
@@ -1548,229 +1005,5 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-}
-
-internal sealed class PortEntryViewModel : INotifyPropertyChanged
-{
-    private PortEntry _entry;
-    private bool _isExpanded;
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    public PortEntryViewModel(PortEntry entry)
-    {
-        _entry = entry;
-    }
-
-    public int LocalPort => _entry.LocalPort;
-    public int ProcessId => _entry.ProcessId;
-    public string ProcessName => _entry.ProcessName;
-    public string? ProjectName => _entry.ProjectName;
-    public string? Framework => _entry.Framework;
-    public string? WorkingDirectory => _entry.WorkingDirectory;
-    public string? ExecutablePath => _entry.ExecutablePath;
-    public string? ProcessDirectory => !string.IsNullOrWhiteSpace(_entry.ExecutablePath) ? Path.GetDirectoryName(_entry.ExecutablePath) : null;
-    public string? ProjectRootDirectory => ProjectRootResolver.Resolve(_entry.WorkingDirectory);
-    public string ProjectGroupKey => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
-    public string ProjectGroupTitle => ProjectRootResolver.DisplayName(ProjectRootDirectory ?? _entry.WorkingDirectory, DisplayName);
-    public string ProjectGroupSubtitle => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
-    public string Url => _entry.Url;
-    public string PortText => $":{_entry.LocalPort}";
-    public string DisplayName => _entry.DisplayName;
-    public string FrameworkText => string.IsNullOrWhiteSpace(_entry.Framework) ? _entry.ProcessName : _entry.Framework;
-    public string UptimeText => FormatUptime(_entry.Uptime);
-    public string CpuText => _entry.CpuPercent.HasValue ? $"{_entry.CpuPercent:0.0}% CPU" : "CPU ...";
-    public string MemoryText => _entry.MemoryBytes.HasValue ? $"{_entry.MemoryBytes.Value / 1024 / 1024} MB" : "";
-    public string AddressText => $"{_entry.Protocol} {_entry.LocalAddress}:{_entry.LocalPort}";
-    public string CommandText => _entry.CommandLine ?? _entry.ProcessName;
-    public string DirectoryText => _entry.WorkingDirectory ?? _entry.ExecutablePath ?? "";
-
-    public bool IsExpanded
-    {
-        get => _isExpanded;
-        set
-        {
-            if (_isExpanded == value)
-            {
-                return;
-            }
-
-            _isExpanded = value;
-            OnPropertyChanged(nameof(IsExpanded));
-        }
-    }
-
-    public void Update(PortEntry entry)
-    {
-        _entry = entry;
-        OnPropertyChanged(nameof(ProcessName));
-        OnPropertyChanged(nameof(ProjectName));
-        OnPropertyChanged(nameof(Framework));
-        OnPropertyChanged(nameof(WorkingDirectory));
-        OnPropertyChanged(nameof(ExecutablePath));
-        OnPropertyChanged(nameof(ProcessDirectory));
-        OnPropertyChanged(nameof(ProjectRootDirectory));
-        OnPropertyChanged(nameof(ProjectGroupKey));
-        OnPropertyChanged(nameof(ProjectGroupTitle));
-        OnPropertyChanged(nameof(ProjectGroupSubtitle));
-        OnPropertyChanged(nameof(DisplayName));
-        OnPropertyChanged(nameof(FrameworkText));
-        OnPropertyChanged(nameof(UptimeText));
-        OnPropertyChanged(nameof(CpuText));
-        OnPropertyChanged(nameof(MemoryText));
-        OnPropertyChanged(nameof(AddressText));
-        OnPropertyChanged(nameof(CommandText));
-        OnPropertyChanged(nameof(DirectoryText));
-    }
-
-    private static string FormatUptime(TimeSpan? uptime)
-    {
-        if (uptime is null)
-        {
-            return "";
-        }
-
-        if (uptime.Value.TotalDays >= 1)
-        {
-            return $"{(int)uptime.Value.TotalDays}d {uptime.Value.Hours}h";
-        }
-
-        if (uptime.Value.TotalHours >= 1)
-        {
-            return $"{(int)uptime.Value.TotalHours}h {uptime.Value.Minutes}m";
-        }
-
-        return $"{uptime.Value.Minutes}m";
-    }
-
-    private void OnPropertyChanged(string propertyName)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-}
-
-internal sealed class SettingsDialogResult
-{
-    public bool Reset { get; init; }
-    public bool ShowSystemPorts { get; init; }
-    public int RefreshIntervalSeconds { get; init; } = 5;
-    public bool RememberWindowPlacement { get; init; } = true;
-    public bool CloseToTray { get; init; } = true;
-    public bool GroupByProject { get; init; } = true;
-    public IReadOnlyList<int> ExcludedPorts { get; init; } = [];
-    public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
-}
-
-internal sealed record SettingsSection(FrameworkElement View, Func<IReadOnlyList<string>> GetEnabledFrameworks);
-
-internal sealed record BlacklistSection(FrameworkElement View, Func<IReadOnlyList<int>> GetExcludedPorts);
-
-internal static class ProjectRootResolver
-{
-    private static readonly HashSet<string> ChildProjectNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "api",
-        "app",
-        "backend",
-        "client",
-        "frontend",
-        "server",
-        "web"
-    };
-
-    private static readonly HashSet<string> WorkspaceContainerNames = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "apps",
-        "packages",
-        "services"
-    };
-
-    public static string? Resolve(string? directory)
-    {
-        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
-        {
-            return directory;
-        }
-
-        var current = new DirectoryInfo(directory);
-        var markerRoot = FindMarkerRoot(current);
-        if (markerRoot is not null)
-        {
-            return markerRoot.FullName;
-        }
-
-        var parent = current.Parent;
-        if (parent is null)
-        {
-            return current.FullName;
-        }
-
-        if (ChildProjectNames.Contains(current.Name))
-        {
-            return parent.FullName;
-        }
-
-        if (WorkspaceContainerNames.Contains(parent.Name) && parent.Parent is not null)
-        {
-            return parent.Parent.FullName;
-        }
-
-        return current.FullName;
-    }
-
-    public static string DisplayName(string? directory, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return fallback;
-        }
-
-        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        return string.IsNullOrWhiteSpace(name) ? fallback : name;
-    }
-
-    private static DirectoryInfo? FindMarkerRoot(DirectoryInfo start)
-    {
-        for (var current = start; current is not null; current = current.Parent)
-        {
-            if (HasRootMarker(current))
-            {
-                return current;
-            }
-        }
-
-        return null;
-    }
-
-    private static bool HasRootMarker(DirectoryInfo directory)
-    {
-        try
-        {
-            return Directory.Exists(Path.Combine(directory.FullName, ".git"))
-                || File.Exists(Path.Combine(directory.FullName, "pnpm-workspace.yaml"))
-                || File.Exists(Path.Combine(directory.FullName, "turbo.json"))
-                || File.Exists(Path.Combine(directory.FullName, "nx.json"))
-                || File.Exists(Path.Combine(directory.FullName, "lerna.json"))
-                || File.Exists(Path.Combine(directory.FullName, "docker-compose.yml"))
-                || Directory.EnumerateFiles(directory.FullName, "*.sln").Any()
-                || PackageJsonHasWorkspaces(Path.Combine(directory.FullName, "package.json"));
-        }
-        catch
-        {
-            return false;
-        }
-    }
-
-    private static bool PackageJsonHasWorkspaces(string path)
-    {
-        try
-        {
-            return File.Exists(path) && File.ReadAllText(path).Contains("\"workspaces\"", StringComparison.OrdinalIgnoreCase);
-        }
-        catch
-        {
-            return false;
-        }
     }
 }
