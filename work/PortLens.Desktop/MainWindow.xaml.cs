@@ -1,82 +1,57 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
-using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
 using PortLens.Desktop.Dialogs;
 using PortLens.Desktop.Services;
-using PortLens.Models;
-using PortLens.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Desktop.ViewModels;
+using PortLens.Services;
 
 namespace PortLens.Desktop;
 
-public partial class MainWindow : Window, INotifyPropertyChanged
+public partial class MainWindow : Window
 {
-    private readonly PortScanner _scanner = new();
     private readonly DispatcherTimer _timer = new();
     private readonly DispatcherTimer _appMetricsTimer = new();
     private readonly DispatcherTimer _settingsSaveTimer = new();
     private readonly DesktopSettingsStore _settingsStore = new();
     private readonly TrayIconService _trayIcon;
     private readonly PortEntryActionService _entryActions;
-    private readonly ObservableCollection<PortEntryViewModel> _entries = new();
-    private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
+    private readonly MainWindowViewModel _viewModel;
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     public SnackbarMessageQueue SnackbarMessageQueue { get; } = new(TimeSpan.FromSeconds(3));
     private DesktopSettings _settings = new();
     private bool _isApplyingSettings;
-    private bool _isRefreshing;
-    private bool _showSystemPorts;
-    private int _refreshIntervalSeconds = 5;
     private bool _rememberWindowPlacement = true;
     private bool _closeToTray = true;
-    private bool _groupByProject = true;
     private bool _showAppMetrics = true;
     private bool _isScanPaused;
     private bool _isExiting;
-    private HashSet<int> _excludedPorts = new();
-    private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
-    private string _searchText = "";
-    private string _statusText = "Scanning...";
-    private string _serviceCountText = "0 services";
-    private string _lastScanText = "Scan --:--:--";
-    private string _appResourceText = "CPU --  Mem --";
-    private DateTime? _lastScanAt;
     private TimeSpan _lastAppCpuTime;
     private DateTimeOffset _lastAppMetricsAt;
 
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    public MainWindow()
+    public MainWindow(IServiceProvider serviceProvider)
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
         ApplyPersistedSettings();
-        DataContext = this;
 
-        FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
-        FilteredEntries.Filter = item => item is PortEntryViewModel entry && Matches(entry);
-        ApplyGrouping();
+        _viewModel = serviceProvider.GetRequiredService<MainWindowViewModel>();
+        _viewModel.RefreshIntervalChanged += (_, _) => UpdateScanTimerInterval();
+        DataContext = _viewModel;
 
-        _entryActions = new PortEntryActionService(_scanner, ShowSnackbar, RefreshPortsAsync);
-        _trayIcon = new TrayIconService(
-            this,
-            ShowMainWindow,
-            RefreshPortsAsync,
-            ShowSettingsDialogAsync,
-            ToggleScanPaused,
-            CopyPortSummary,
-            GetTrayStatus,
-            ExitApplication);
+        _entryActions = serviceProvider.GetRequiredService<PortEntryActionService>();
+        _trayIcon = serviceProvider.GetRequiredService<TrayIconService>();
 
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
         _settingsSaveTimer.Tick += (_, _) =>
@@ -86,7 +61,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         UpdateScanTimerInterval();
-        _timer.Tick += (_, _) => _ = RefreshPortsAsync();
+        _timer.Tick += (_, _) => _ = _viewModel.RefreshAsync();
         _timer.Start();
 
         UpdateAppMetrics();
@@ -94,7 +69,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _appMetricsTimer.Tick += (_, _) => UpdateAppMetrics();
         _appMetricsTimer.Start();
 
-        Loaded += async (_, _) => await RefreshPortsAsync();
+        Loaded += async (_, _) => await _viewModel.RefreshAsync();
         LocationChanged += (_, _) => ScheduleSettingsSave();
         SizeChanged += (_, _) => ScheduleSettingsSave();
         StateChanged += (_, _) =>
@@ -106,185 +81,21 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         Closing += MainWindow_Closing;
     }
 
-    public ICollectionView FilteredEntries { get; }
+    public MainWindowViewModel ViewModel => _viewModel;
 
-    public string SearchText
-    {
-        get => _searchText;
-        set
-        {
-            if (_searchText == value)
-            {
-                return;
-            }
-
-            _searchText = value;
-            OnPropertyChanged(nameof(SearchText));
-            FilteredEntries.Refresh();
-            OnPropertyChanged(nameof(IsEmpty));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool ShowSystemPorts
-    {
-        get => _showSystemPorts;
-        set
-        {
-            if (_showSystemPorts == value)
-            {
-                return;
-            }
-
-            _showSystemPorts = value;
-            OnPropertyChanged(nameof(ShowSystemPorts));
-            ScheduleSettingsSave();
-            _ = RefreshPortsAsync();
-        }
-    }
-
-    public int RefreshIntervalSeconds
-    {
-        get => _refreshIntervalSeconds;
-        set
-        {
-            var normalized = NormalizeRefreshInterval(value);
-            if (_refreshIntervalSeconds == normalized)
-            {
-                return;
-            }
-
-            _refreshIntervalSeconds = normalized;
-            UpdateScanTimerInterval();
-            OnPropertyChanged(nameof(RefreshIntervalSeconds));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool RememberWindowPlacement
-    {
-        get => _rememberWindowPlacement;
-        set
-        {
-            if (_rememberWindowPlacement == value)
-            {
-                return;
-            }
-
-            _rememberWindowPlacement = value;
-            OnPropertyChanged(nameof(RememberWindowPlacement));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool CloseToTray
-    {
-        get => _closeToTray;
-        set
-        {
-            if (_closeToTray == value)
-            {
-                return;
-            }
-
-            _closeToTray = value;
-            OnPropertyChanged(nameof(CloseToTray));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool GroupByProject
-    {
-        get => _groupByProject;
-        set
-        {
-            if (_groupByProject == value)
-            {
-                return;
-            }
-
-            _groupByProject = value;
-            ApplyGrouping();
-            OnPropertyChanged(nameof(GroupByProject));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool ShowAppMetrics
-    {
-        get => _showAppMetrics;
-        set
-        {
-            if (_showAppMetrics == value)
-            {
-                return;
-            }
-
-            _showAppMetrics = value;
-            OnPropertyChanged(nameof(ShowAppMetrics));
-            ScheduleSettingsSave();
-        }
-    }
-
-    public bool IsScanPaused
-    {
-        get => _isScanPaused;
-        private set
-        {
-            if (_isScanPaused == value)
-            {
-                return;
-            }
-
-            _isScanPaused = value;
-            UpdateScanTimerInterval();
-            OnPropertyChanged(nameof(IsScanPaused));
-        }
-    }
-
-    public string StatusText
-    {
-        get => _statusText;
-        private set
-        {
-            _statusText = value;
-            OnPropertyChanged(nameof(StatusText));
-        }
-    }
-
-    public string ServiceCountText
-    {
-        get => _serviceCountText;
-        private set
-        {
-            _serviceCountText = value;
-            OnPropertyChanged(nameof(ServiceCountText));
-        }
-    }
-
-    public string LastScanText
-    {
-        get => _lastScanText;
-        private set
-        {
-            _lastScanText = value;
-            OnPropertyChanged(nameof(LastScanText));
-        }
-    }
+    public string AppVersionText { get; } = $"v{GetAppVersion()}";
 
     public string AppResourceText
     {
         get => _appResourceText;
-        private set
+        set
         {
             _appResourceText = value;
-            OnPropertyChanged(nameof(AppResourceText));
+            // DataContext is ViewModel; this property is bound via window resources in code-behind only
         }
     }
 
-    public string AppVersionText { get; } = $"v{GetAppVersion()}";
-
-    public bool IsEmpty => FilteredEntries.IsEmpty;
+    private string _appResourceText = "CPU --  Mem --";
 
     private void UpdateAppMetrics()
     {
@@ -310,6 +121,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _lastAppMetricsAt = now;
             _lastAppCpuTime = totalCpu;
             AppResourceText = $"CPU {cpuText}  Mem {memoryMb:0} MB";
+            // Refresh binding for the status bar
+            GetType().GetProperty(nameof(AppResourceText))?.GetSetMethod()?.Invoke(this, [AppResourceText]);
         }
         catch
         {
@@ -330,91 +143,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Split('+')[0];
     }
 
-    private async Task RefreshPortsAsync()
-    {
-        if (_isRefreshing)
-        {
-            return;
-        }
-
-        if (IsScanPaused)
-        {
-            StatusText = "Scanning paused.";
-            return;
-        }
-
-        _isRefreshing = true;
-        StatusText = "Scanning in background...";
-        var showAll = ShowSystemPorts;
-
-        try
-        {
-            var options = new PortScanOptions
-            {
-                ShowAll = showAll,
-                ExcludedPorts = _excludedPorts.ToHashSet(),
-                EnabledFrameworks = _enabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
-            };
-            var entries = await Task.Run(() => _scanner.Scan(options));
-            ApplyEntries(entries);
-            _lastScanAt = DateTime.Now;
-            ServiceCountText = showAll
-                ? $"{_entries.Count} ports"
-                : $"{_entries.Count} services";
-            LastScanText = $"Scan {_lastScanAt:HH:mm:ss}";
-            StatusText = showAll
-                ? "Local listening ports"
-                : "Development services";
-        }
-        catch (Exception ex)
-        {
-            StatusText = $"Scan failed: {ex.Message}";
-        }
-        finally
-        {
-            _isRefreshing = false;
-        }
-    }
-
-    private void ApplyEntries(IReadOnlyList<PortEntry> entries)
-    {
-        var liveKeys = entries.Select(CardKey).ToHashSet(StringComparer.Ordinal);
-        foreach (var staleKey in _entriesByKey.Keys.Where(key => !liveKeys.Contains(key)).ToList())
-        {
-            var stale = _entriesByKey[staleKey];
-            _entries.Remove(stale);
-            _entriesByKey.Remove(staleKey);
-        }
-
-        for (var index = 0; index < entries.Count; index++)
-        {
-            var entry = entries[index];
-            var key = CardKey(entry);
-            if (_entriesByKey.TryGetValue(key, out var existing))
-            {
-                existing.Update(entry);
-                var currentIndex = _entries.IndexOf(existing);
-                if (currentIndex >= 0 && currentIndex != index)
-                {
-                    _entries.Move(currentIndex, index);
-                }
-            }
-            else
-            {
-                var created = new PortEntryViewModel(entry);
-                _entriesByKey[key] = created;
-                _entries.Insert(Math.Min(index, _entries.Count), created);
-            }
-        }
-
-        FilteredEntries.Refresh();
-        OnPropertyChanged(nameof(IsEmpty));
-    }
-
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
     {
         SaveSettings();
-        if (_isExiting || !CloseToTray)
+        if (_isExiting || !_closeToTray)
         {
             _trayIcon.Dispose();
             return;
@@ -444,35 +176,41 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             ApplyDefaultSettings();
             SaveSettings();
-            _ = RefreshPortsAsync();
+            _ = _viewModel.RefreshAsync();
             return;
         }
 
-        ShowSystemPorts = dialogResult.ShowSystemPorts;
-        RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
-        RememberWindowPlacement = dialogResult.RememberWindowPlacement;
-        CloseToTray = dialogResult.CloseToTray;
-        GroupByProject = dialogResult.GroupByProject;
-        ShowAppMetrics = dialogResult.ShowAppMetrics;
-        _excludedPorts = NormalizeExcludedPorts(dialogResult.ExcludedPorts);
-        _enabledFrameworks = NormalizeEnabledFrameworks(dialogResult.EnabledFrameworks);
+        _viewModel.ShowSystemPorts = dialogResult.ShowSystemPorts;
+        _viewModel.RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds;
+        _rememberWindowPlacement = dialogResult.RememberWindowPlacement;
+        _closeToTray = dialogResult.CloseToTray;
+        _viewModel.GroupByProject = dialogResult.GroupByProject;
+        _showAppMetrics = dialogResult.ShowAppMetrics;
+        _viewModel.ApplyState(new MainWindowState
+        {
+            ShowSystemPorts = dialogResult.ShowSystemPorts,
+            RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds,
+            GroupByProject = dialogResult.GroupByProject,
+            ExcludedPorts = dialogResult.ExcludedPorts,
+            EnabledFrameworks = dialogResult.EnabledFrameworks
+        });
         SaveSettings();
-        _ = RefreshPortsAsync();
+        _ = _viewModel.RefreshAsync();
     }
 
     private void ToggleScanPaused()
     {
-        IsScanPaused = !IsScanPaused;
-        StatusText = IsScanPaused ? "Scanning paused." : "Scanning resumed.";
-        if (!IsScanPaused)
+        _isScanPaused = !_isScanPaused;
+        _viewModel.StatusText = _isScanPaused ? "Scanning paused." : "Scanning resumed.";
+        if (!_isScanPaused)
         {
-            _ = RefreshPortsAsync();
+            _ = _viewModel.RefreshAsync();
         }
     }
 
     private void CopyPortSummary()
     {
-        var lines = _entries
+        var lines = _viewModel.Entries
             .Select(entry => $"{entry.PortText} {entry.DisplayName} | {entry.FrameworkText} | PID {entry.ProcessId} | {entry.Url}")
             .ToArray();
 
@@ -495,11 +233,18 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private TrayStatusSnapshot GetTrayStatus()
     {
+        DateTime? lastScanAt = null;
+        if (_viewModel.LastScanText.StartsWith("Scan ") &&
+            DateTime.TryParseExact(_viewModel.LastScanText[5..], "HH:mm:ss", null, DateTimeStyles.None, out var parsed))
+        {
+            lastScanAt = parsed;
+        }
+
         return new TrayStatusSnapshot(
-            _entries.Count,
-            _lastScanAt,
-            IsScanPaused,
-            ShowSystemPorts);
+            _viewModel.Entries.Count,
+            lastScanAt,
+            _isScanPaused,
+            _viewModel.ShowSystemPorts);
     }
 
     private void ExitApplication()
@@ -514,15 +259,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         _isApplyingSettings = true;
         try
         {
-            _searchText = _settings.SearchText ?? "";
-            _showSystemPorts = _settings.ShowSystemPorts;
-            _refreshIntervalSeconds = NormalizeRefreshInterval(_settings.RefreshIntervalSeconds);
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
             _closeToTray = _settings.CloseToTray;
-            _groupByProject = _settings.GroupByProject;
             _showAppMetrics = _settings.ShowAppMetrics;
-            _excludedPorts = NormalizeExcludedPorts(_settings.ExcludedPorts);
-            _enabledFrameworks = NormalizeEnabledFrameworks(_settings.EnabledFrameworks);
 
             if (_settings.RememberWindowPlacement && IsUsableWindowPlacement(_settings))
             {
@@ -590,20 +329,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _settings.SearchText = SearchText;
-        _settings.ShowSystemPorts = ShowSystemPorts;
-        _settings.RefreshIntervalSeconds = RefreshIntervalSeconds;
-        _settings.RememberWindowPlacement = RememberWindowPlacement;
-        _settings.CloseToTray = CloseToTray;
-        _settings.GroupByProject = GroupByProject;
-        _settings.ShowAppMetrics = ShowAppMetrics;
-        _settings.ExcludedPorts = _excludedPorts.Order().ToList();
-        _settings.EnabledFrameworks = _enabledFrameworks
-            .OrderBy(framework => Array.IndexOf(DesktopSettings.DefaultEnabledFrameworks, framework))
-            .ToList();
+        var state = _viewModel.CaptureState();
+        _settings.SearchText = state.SearchText ?? "";
+        _settings.ShowSystemPorts = state.ShowSystemPorts;
+        _settings.RefreshIntervalSeconds = state.RefreshIntervalSeconds;
+        _settings.RememberWindowPlacement = _rememberWindowPlacement;
+        _settings.CloseToTray = _closeToTray;
+        _settings.GroupByProject = state.GroupByProject;
+        _settings.ShowAppMetrics = _showAppMetrics;
+        _settings.ExcludedPorts = state.ExcludedPorts.ToList();
+        _settings.EnabledFrameworks = state.EnabledFrameworks.ToList();
         _settings.IsMaximized = WindowState == WindowState.Maximized;
 
-        if (!RememberWindowPlacement)
+        if (!_rememberWindowPlacement)
         {
             _settings.WindowLeft = null;
             _settings.WindowTop = null;
@@ -629,19 +367,10 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private static int NormalizeRefreshInterval(int seconds)
-    {
-        return seconds switch
-        {
-            3 or 5 or 10 or 30 => seconds,
-            _ => 5
-        };
-    }
-
     private void UpdateScanTimerInterval()
     {
-        var foregroundInterval = TimeSpan.FromSeconds(RefreshIntervalSeconds);
-        if (IsScanPaused)
+        var foregroundInterval = TimeSpan.FromSeconds(_viewModel.RefreshIntervalSeconds);
+        if (_isScanPaused)
         {
             _timer.Stop();
             return;
@@ -661,26 +390,40 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         return first >= second ? first : second;
     }
 
-    private void ApplyGrouping()
+    private void ApplyDefaultSettings()
     {
-        if (FilteredEntries is null)
+        _viewModel.ApplyState(new MainWindowState
         {
-            return;
-        }
-
-        FilteredEntries.GroupDescriptions.Clear();
-        if (GroupByProject)
-        {
-            FilteredEntries.GroupDescriptions.Add(new PropertyGroupDescription(nameof(PortEntryViewModel.ProjectGroupKey)));
-        }
-
-        FilteredEntries.Refresh();
-        OnPropertyChanged(nameof(IsEmpty));
+            SearchText = "",
+            ShowSystemPorts = false,
+            RefreshIntervalSeconds = 5,
+            GroupByProject = true,
+            ExcludedPorts = [],
+            EnabledFrameworks = DesktopSettings.DefaultEnabledFrameworks
+        });
+        _rememberWindowPlacement = true;
+        _closeToTray = true;
+        _showAppMetrics = true;
+        _settings.WindowLeft = null;
+        _settings.WindowTop = null;
+        _settings.WindowWidth = null;
+        _settings.WindowHeight = null;
+        _settings.IsMaximized = false;
     }
 
-    private async void RefreshButton_Click(object sender, RoutedEventArgs e)
+    private FrameworkElement BuildSettingsDialog()
     {
-        await RefreshPortsAsync();
+        return new SettingsDialog(new SettingsDialogState
+        {
+            ShowSystemPorts = _viewModel.ShowSystemPorts,
+            RefreshIntervalSeconds = _viewModel.RefreshIntervalSeconds,
+            RememberWindowPlacement = _rememberWindowPlacement,
+            CloseToTray = _closeToTray,
+            GroupByProject = _viewModel.GroupByProject,
+            ShowAppMetrics = _showAppMetrics,
+            ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
+            EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
+        });
     }
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -691,39 +434,6 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     private async void StatusBar_MouseLeftButtonUp(object sender, MouseButtonEventArgs e)
     {
         await ShowSettingsDialogAsync();
-    }
-
-    private FrameworkElement BuildSettingsDialog()
-    {
-        return new SettingsDialog(new SettingsDialogState
-        {
-            ShowSystemPorts = ShowSystemPorts,
-            RefreshIntervalSeconds = RefreshIntervalSeconds,
-            RememberWindowPlacement = RememberWindowPlacement,
-            CloseToTray = CloseToTray,
-            GroupByProject = GroupByProject,
-            ShowAppMetrics = ShowAppMetrics,
-            ExcludedPorts = _excludedPorts,
-            EnabledFrameworks = _enabledFrameworks
-        });
-    }
-
-    private void ApplyDefaultSettings()
-    {
-        SearchText = "";
-        ShowSystemPorts = false;
-        RefreshIntervalSeconds = 5;
-        RememberWindowPlacement = true;
-        CloseToTray = true;
-        GroupByProject = true;
-        ShowAppMetrics = true;
-        _excludedPorts.Clear();
-        _enabledFrameworks = NormalizeEnabledFrameworks(DesktopSettings.DefaultEnabledFrameworks);
-        _settings.WindowLeft = null;
-        _settings.WindowTop = null;
-        _settings.WindowWidth = null;
-        _settings.WindowHeight = null;
-        _settings.IsMaximized = false;
     }
 
     private void Header_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -851,10 +561,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             return;
         }
 
-        _excludedPorts.Add(entry.LocalPort);
+        _viewModel.AddToBlacklist(entry.LocalPort);
         SaveSettings();
         ShowSnackbar($"Port {entry.LocalPort} added to blacklist.");
-        _ = RefreshPortsAsync();
     }
 
     private async void KillProcessTreeMenuItem_Click(object sender, RoutedEventArgs e)
@@ -865,63 +574,20 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
+    internal async Task ShowSnackbarAsync(string message)
+    {
+        await Dispatcher.InvokeAsync(() => ShowSnackbar(message));
+    }
+
     private void ShowSnackbar(string message)
     {
         SnackbarMessageQueue.Enqueue(message);
-        StatusText = message;
+        _viewModel.StatusText = message;
     }
 
     private static PortEntryViewModel? GetEntry(object sender)
     {
         return sender is FrameworkElement { Tag: PortEntryViewModel entry } ? entry : null;
-    }
-
-    private static HashSet<int> NormalizeExcludedPorts(IEnumerable<int>? ports)
-    {
-        return ports?
-            .Where(port => port is > 0 and <= 65535)
-            .ToHashSet()
-            ?? new HashSet<int>();
-    }
-
-    private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks)
-    {
-        var valid = DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var provided = frameworks?.ToArray();
-        var normalized = provided?
-            .Where(framework => valid.Contains(framework))
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        if (normalized is null)
-        {
-            return valid;
-        }
-
-        var previousDefault = valid.Where(framework => !framework.Equals("Go", StringComparison.OrdinalIgnoreCase)).ToArray();
-        var wasPreviousDefault = normalized.Count == previousDefault.Length &&
-            previousDefault.All(framework => normalized.Contains(framework));
-        if (wasPreviousDefault)
-        {
-            normalized.Add("Go");
-        }
-
-        return normalized;
-    }
-
-    private bool Matches(PortEntryViewModel entry)
-    {
-        if (string.IsNullOrWhiteSpace(SearchText))
-        {
-            return true;
-        }
-
-        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.ProjectGroupTitle, entry.ProjectGroupSubtitle, entry.Framework, entry.CommandText, entry.DirectoryText);
-        return haystack.Contains(SearchText, StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string CardKey(PortEntry entry)
-    {
-        return $"{entry.Protocol}:{entry.LocalAddress}:{entry.LocalPort}:{entry.ProcessId}";
     }
 
     private static bool IsInteractiveElement(DependencyObject? source)
@@ -937,10 +603,5 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
 
         return false;
-    }
-
-    private void OnPropertyChanged(string propertyName)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 }

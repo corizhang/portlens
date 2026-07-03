@@ -4,7 +4,7 @@ using PortLens.Desktop.Services;
 
 namespace PortLens.Desktop.ViewModels;
 
-internal sealed class PortEntryViewModel : INotifyPropertyChanged
+public sealed class PortEntryViewModel : INotifyPropertyChanged
 {
     private PortEntry _entry;
     private bool _isExpanded;

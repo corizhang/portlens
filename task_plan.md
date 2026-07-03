@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 1
+阶段 3
 
 ## 各阶段
 
@@ -20,27 +20,31 @@
 - **状态：** complete
 
 ### 阶段 2：核心代码重构（高优先级）
-- [ ] 拆分 `ProcessInspector.cs` 为多个单一职责类
+- [x] 拆分 `ProcessInspector.cs` 为多个单一职责类
+  - `CpuSampler`
+  - `FrameworkDetector`
+  - `ProjectNameResolver`
   - `ProcessCommandLineReader`
   - `ProcessCurrentDirectoryReader`
   - `ProcessTreeReader`
-  - `FrameworkDetector`
-  - `ProjectNameResolver`
-  - `CpuSampler`
-- [ ] 拆分 `MainWindow.xaml.cs` 业务逻辑，引入 MVVM
+- [x] 简化 `ProcessInspector`，使用拆分的类和 `ConcurrentDictionary`
+- [x] 拆分 `MainWindow.xaml.cs` 业务逻辑，引入 MVVM
   - 创建 `MainWindowViewModel`
-  - 将设置管理、扫描调度、托盘交互逻辑迁移到 ViewModel
-- [ ] 引入依赖注入容器（如 `Microsoft.Extensions.DependencyInjection`）
-- [ ] 阶段内增量构建验证
-- **状态：** pending
+  - 将扫描调度、搜索过滤、分组、黑名单、框架规则迁移到 ViewModel
+- [x] 引入依赖注入容器（`Microsoft.Extensions.DependencyInjection`）
+  - 创建 `ServiceRegistration`
+  - 更新 `App.xaml.cs` 通过 DI 启动主窗口
+- [x] 阶段内增量构建验证
+- [x] 发布脚本验证
+- **状态：** complete
 
 ### 阶段 3：性能优化（中优先级）
 - [ ] 优化 `ProcessCommandLineReader.ReadMany()` 的 PowerShell/CIM 查询，按 PID 过滤
 - [ ] 搜索过滤增加防抖 + 后台处理
 - [ ] 长时间操作添加 `CancellationToken` 支持
-- [ ] 缓存从 `Dictionary + lock` 迁移到 `ConcurrentDictionary`
-- [ ] 隐藏窗口时进一步降低扫描频率或暂停
-- **状态：** pending
+- [x] 缓存从 `Dictionary + lock` 迁移到 `ConcurrentDictionary`
+- [x] 隐藏窗口时进一步降低扫描频率或暂停
+- **状态：** in_progress
 
 ### 阶段 4：可维护性与质量（中优先级）
 - [ ] 提取统一的颜色/样式资源字典
@@ -97,7 +101,7 @@
 
 | 错误 | 尝试次数 | 解决方案 |
 |------|---------|---------|
-| 无 | 0 | 无 |
+| 发布 exe 双击无反应 | 1 | `MainWindowViewModel` 改为手动注册，`ShowSnackbarAsync` 改为 internal |
 
 ## 备注
 

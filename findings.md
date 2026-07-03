@@ -76,6 +76,39 @@
 |------|---------|
 | 无 | 无 |
 
+## 阶段 2 结果
+
+- 拆分了 `ProcessInspector.cs`：
+  - 新增 `CpuSampler`：负责 CPU 采样和缓存管理。
+  - 新增 `FrameworkDetector`：负责框架推断。
+  - 新增 `ProjectNameResolver`：负责工作目录推断和项目名称解析。
+  - 新增 `ProcessCommandLineReader`：负责读取进程命令行。
+  - 新增 `ProcessCurrentDirectoryReader`：负责从 PEB 读取当前工作目录。
+  - 新增 `ProcessTreeReader`：负责统计子进程数量。
+- 简化了 `ProcessInspector`，移除内嵌的静态类，改用拆分的组件，并将 `Dictionary + lock` 缓存替换为 `ConcurrentDictionary`。
+- 引入 MVVM：
+  - 新增 `MainWindowViewModel`，承载扫描调度、搜索过滤、项目分组、黑名单、框架规则等状态。
+  - `MainWindow` 仅保留视图相关逻辑、窗口管理、设置持久化、应用资源监控和事件处理。
+- 引入依赖注入：
+  - 新增 `ServiceRegistration`，注册 `PortScanner`、`MainWindowViewModel`、`PortEntryActionService`、`TrayIconService`、`MainWindow`。
+  - 更新 `App.xaml.cs` 通过 `ServiceProvider` 启动主窗口。
+  - `MainWindow` 构造函数接收 `IServiceProvider` 并解析依赖。
+- 验证：
+  - `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+  - `powershell.exe ./scripts/publish.ps1` 成功发布到 `outputs/PortLensMaterial`。
+  - 修复发布后双击无反应的问题：DI 容器无法自动解析 `Func<string, Task>` 参数，改为手动注册 `MainWindowViewModel` 后启动正常。
+
+## 遇到的问题
+
+| 问题 | 解决方案 |
+|------|---------|
+| `MainWindowViewModel` 为 internal 导致属性可访问性不一致 | 将 `MainWindowViewModel`、`MainWindowState`、`PortEntryViewModel` 改为 public |
+| `StatusText` setter 为 private，MainWindow 无法赋值 | 将 setter 改为 public |
+| 删除了 `SettingsButton_Click` 和 `StatusBar_MouseLeftButtonUp` 事件处理器 | 重新添加 |
+| `ButtonBase`/`TextBox` 在 WinForms 和 WPF 之间存在歧义 | 使用完全限定名 `System.Windows.Controls.Primitives.ButtonBase` 和 `System.Windows.Controls.TextBox` |
+| `ServiceProvider` 与 `IServiceProvider` 转换错误 | `MainWindow` 构造函数改为 `IServiceProvider`，注册也改为 `AddSingleton<MainWindow>` |
+| 发布 exe 双击无反应 | `MainWindowViewModel` 改为在 `ServiceRegistration` 中手动注册，`ShowSnackbarAsync` 改为 internal，避免 DI 无法解析 `Func<string, Task>` |
+
 ## 资源
 
 - [PortLens.Core 项目文件](work/PortLens.Core/PortLens.Core.csproj)
