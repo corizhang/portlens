@@ -193,9 +193,28 @@
   - `work/PortLens.Desktop/MainWindow.xaml.cs`
   - `work/PortLens.Desktop/MainWindow.xaml`
 
+### 阶段 9：性能优化 A/B/C
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 阶段 A：在 `MainWindow.xaml` 启用主列表 UI 虚拟化（`VirtualizingStackPanel`、`IsVirtualizingWhenGrouping`、`ScrollUnit="Pixel"`）
+  - 阶段 B：在 `PortEntryViewModel` 预计算并缓存 `ProjectRootDirectory`、`ProjectGroupKey`、`ProjectGroupTitle`、`ProjectGroupSubtitle`、`SearchHaystack`；`MainWindowViewModel.MatchesText` 使用缓存 haystack
+  - 阶段 C：为 `ProcessCommandLineReader` 添加按 PID 的 TTL 缓存；为 `ProcessTreeReader` 添加父子关系图快照缓存；新增 `IProcessCommandLineReader` / `IProcessTreeReader` 接口；`ProcessInspector` 和 DI 注册适配接口
+  - 每个阶段独立 `dotnet build` / `dotnet test` / `scripts/publish.ps1` 验证，并做 UI 自动化 smoke test
+  - 每个阶段独立提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/MainWindow.xaml`
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+  - `work/PortLens.Core/Services/ProcessTreeReader.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Desktop/ServiceRegistration.cs`
+
 ## 最终交付说明
 
-本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 7：
+本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 9：
 
 1. **工程基础建设**：创建 `PortLens.sln`、`Directory.Build.props`、`global.json`、`.editorconfig`，统一版本与代码风格。
 2. **核心代码重构**：拆分 `ProcessInspector` 为单一职责服务，引入 MVVM 与依赖注入。
@@ -204,6 +223,8 @@
 5. **测试与 CI/CD**：创建 `PortLens.Core.Tests` 并编写 45 个单元测试，全部通过；创建 GitHub Actions 工作流。
 6. **体验优化**：关闭按钮图标改为 `ChevronDown`，首次扫描增加加载状态。
 7. **验证与交付**：完整构建、测试、发布均验证通过；更新文档。
+8. **回归修复**：修复状态栏 CPU/内存/版本不显示、设置不持久化的问题。
+9. **性能优化 A/B/C**：UI 虚拟化、搜索/分组预计算、跨扫描 PowerShell/CIM 缓存，分别独立提交并通过验证。
 
 最终状态：
 - `dotnet build PortLens.sln` 成功
@@ -229,11 +250,11 @@
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 7：验证与交付 |
-| 我要去哪里？ | 完成 README/CLAUDE.md 更新，做最终构建与发布验证 |
+| 我在哪里？ | 阶段 9：性能优化 A/B/C 已完成 |
+| 我要去哪里？ | 根据 profiling 决定是否实施阶段 D 进阶优化 |
 | 目标是什么？ | 系统性地优化 PortLens 的代码结构、性能、可维护性和用户体验 |
 | 我学到了什么？ | 见 findings.md |
-| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3、阶段 4、阶段 5、阶段 6、阶段 7 |
+| 我做了什么？ | 已完成阶段 1 至阶段 9，性能优化 A/B/C 已分别提交并通过验证 |
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*

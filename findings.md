@@ -295,6 +295,62 @@ DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `Initial
   - `v0.1.0`
 - 设置持久化验证：预修改 `ShowSystemPorts=true`、`RefreshIntervalSeconds=30`、`ShowAppMetrics=false`，重启应用后设置保持不变。
 
+## 阶段 9：性能优化 A/B/C 实施总结
+
+### 目标
+
+延续阶段 8 的修复，按投入产出比进一步降低 PortLens 的 CPU、内存和子进程开销。
+
+### 阶段 A：UI 虚拟化
+
+**问题**：主列表使用 `ScrollViewer` 包裹 `ItemsControl`，默认面板是 `StackPanel`，所有条目一次性实例化可视树。端口多时布局/渲染开销大。
+
+**修复**：
+- 移除外部 `ScrollViewer`。
+- 在 `ItemsControl.Template` 内放置 `ScrollViewer`。
+- 设置 `ItemsPanel` 为 `VirtualizingStackPanel`，`ScrollUnit="Pixel"`。
+- 启用 `VirtualizingPanel.IsVirtualizing`、`IsVirtualizingWhenGrouping`、`ScrollViewer.CanContentScroll`。
+
+**结果**：列表仅实例化可视区域内条目，分组、展开/折叠、上下文菜单保持正常。
+
+### 阶段 B：预计算搜索 haystack 与项目分组字段
+
+**问题**：`PortEntryViewModel` 的 `ProjectRootDirectory`、`ProjectGroupKey`、`ProjectGroupTitle`、`ProjectGroupSubtitle` 每次属性访问都调用 `ProjectRootResolver.Resolve`，搜索过滤时还做 `string.Join` 分配新字符串。
+
+**修复**：
+- 在 `PortEntryViewModel` 构造函数和 `Update()` 中调用 `RecalculateDerivedValues()`，一次性计算并缓存这些字段。
+- 新增 `SearchHaystack` 属性。
+- `MainWindowViewModel.MatchesText` 直接使用 `entry.SearchHaystack.Contains(text)`。
+
+**结果**：每次扫描只进行一次文件系统遍历和字符串拼接，搜索和分组刷新不再重复走目录。
+
+### 阶段 C：跨扫描缓存 PowerShell/CIM 结果
+
+**问题**：每次刷新都启动 PowerShell 读取命令行和进程树。默认 5 秒刷新一次，子进程开销高。
+
+**修复**：
+- 新增 `IProcessCommandLineReader` 和 `IProcessTreeReader` 接口。
+- `ProcessCommandLineReader` 增加按 PID 的 TTL 缓存（60s），`ReadMany` 只查询缺失/过期的 PID。
+- `ProcessTreeReader` 增加整个父子关系图的 TTL 快照缓存（60s），并支持 `CancellationToken`。
+- `ProcessInspector.PruneCaches` 调用两个 reader 的 `Prune` 方法移除已退出进程的缓存。
+- 更新 DI 注册使用接口。
+
+**结果**：同一 PID 在短时间内不会被重复查询，后续刷新基本不再启动 PowerShell。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 45 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- UI 自动化验证发布后的 `PortLens.exe` 状态栏和列表显示正常。
+
+### 进阶优化建议（阶段 D）
+
+1. **原生 API 替代 PowerShell/CIM**：使用 `NtQuerySystemInformation` 读取进程命令行，彻底消除 PowerShell 开销。
+2. **`PortEntry.Key` 使用 struct**：减少 `_entriesByKey` 字典 key 的字符串分配。
+3. **`ApplyEntries` 批量 diff**：减少 `ObservableCollection` 逐个 `Remove`/`Move`/`Insert` 触发的 `CollectionChanged` 事件。
+4. **进程快照字典**：在 `ProcessInspector.EnrichBasic` 中用一次 `Process.GetProcesses()` 快照替代多次 `Process.GetProcessById` 异常处理。
+
 ---
 
 *每执行2次查看/浏览器/搜索操作后更新此文件*
