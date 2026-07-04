@@ -377,6 +377,85 @@ DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `Initial
 - 风险：PEB 结构偏移仅限 x64；已在代码中通过 `IntPtr.Size != 8` 返回 `null` 保护。
 - 回滚：还原 `ProcessCommandLineReader.cs` 到 PowerShell/CIM 版本。
 
+## 阶段 D2：`PortEntry.Key` 使用 struct
+
+### 问题
+`PortEntry.Key` 使用字符串插值 `$"{Protocol}:{LocalAddress}:{LocalPort}:{ProcessId}"`，每次访问都会分配新字符串；`_entriesByKey`、`_matchingKeys` 等字典/集合也基于字符串比较。
+
+### 解决方案
+引入 `public readonly record struct PortEntryKey(string Protocol, string LocalAddress, int LocalPort, int ProcessId)`：
+
+- `PortEntry.Key` 与 `PortEntryViewModel.Key` 返回 `PortEntryKey`。
+- `MainWindowViewModel` 的 `_entriesByKey`、`_matchingKeys`、`liveKeys` 全部使用 `PortEntryKey`。
+- 移除 `StringComparer.Ordinal`；struct 默认使用值相等。
+- 新增单元测试验证相等性、哈希码、`HashSet` 去重、`Dictionary` 查找。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 50 个测试通过（新增 5 个）。
+- `scripts/publish.ps1` 发布成功。
+- Smoke test 确认主窗口正常显示。
+
+### 风险与回滚
+
+- 风险：遗漏某个仍使用 `string Key` 的地方导致编译或运行时错误；已通过全文搜索和测试覆盖。
+- 回滚：还原 `PortEntry.cs`、`PortEntryViewModel.cs`、`MainWindowViewModel.cs` 到字符串 key。
+
+## 阶段 D4：进程快照字典
+
+### 问题
+每次扫描中 `EnrichBasic` 对每个端口对应的 PID 调用 `Process.GetProcessById`，导致重复打开进程句柄；部分进程还会抛异常，增加开销。
+
+### 解决方案
+新增 `ProcessSnapshot` 并在扫描开始时一次性捕获：
+
+- `ProcessSnapshot` 包含 `Id`、`ProcessName`、`StartTime`、`WorkingSet64`、`TotalProcessorTime`、`ExecutablePath`。
+- `ProcessInspector.CaptureSnapshot` 调用一次 `Process.GetProcesses()`，逐个读取所需属性后立即 Dispose。
+- `CpuSampler.CalculateCpu` 改为接收 `processId` 和 `TotalProcessorTime`。
+- `EnrichBasic`/`EnrichDetails` 接收快照字典，直接取值；`ReadProcessDetails` 从快照获取 `ExecutablePath`。
+- `PortScanner.Scan` 在 `PreloadProcessDetails` 后调用一次 `CaptureSnapshot`，并传入后续 enrich 调用。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 50 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- Smoke test 确认主窗口、状态栏 CPU/内存、版本号显示正常。
+
+### 风险与回滚
+
+- 风险：进程在快照后退出，数据稍旧；与之前 `Process.GetProcessById` 行为一致。
+- 风险：`MainModule?.FileName` 在部分系统进程上失败，快照中 `ExecutablePath` 为 null，行为与之前一致。
+- 回滚：还原 `ProcessInspector.cs`、`CpuSampler.cs`、`PortScanner.cs` 到按 PID 打开进程的实现。
+
+## 阶段 D3：`ApplyEntries` 批量 diff
+
+### 问题
+`ApplyEntries` 对 `ObservableCollection` 逐个执行 `Remove`/`Move`/`Insert`，每次都会触发 `CollectionChanged` 事件，WPF 重新分组/过滤开销大。
+
+### 解决方案
+引入 `SuppressibleObservableCollection<T>` 并改为批量 diff：
+
+- 自定义集合支持 suppression scope，暂停期间 `CollectionChanged` 和 `PropertyChanged` 不触发。
+- `ApplyEntries` 先按目标顺序构建新的 `List<PortEntryViewModel>`（复用现有 VM）。
+- 更新 `_entriesByKey` 与目标集合一致。
+- 调用 `_entries.ResetTo(newEntries)`，在 suppression scope 内清空并批量添加，退出后触发单个 `Reset` 事件。
+- 复用 VM 实例，保留 `IsExpanded` 状态。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 50 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- Smoke test 确认列表、分组、搜索行为正常。
+
+### 风险与回滚
+
+- 风险：`Reset` 事件会导致 WPF 重新生成容器，可能丢失滚动位置或产生闪烁；在虚拟化列表下影响有限。
+- 风险：`_entriesByKey` 与新集合不一致；通过 diff 后统一赋值保证一致性。
+- 回滚：还原 `MainWindowViewModel.cs`，移除 `SuppressibleObservableCollection`。
+
 ---
 
 *每执行2次查看/浏览器/搜索操作后更新此文件*

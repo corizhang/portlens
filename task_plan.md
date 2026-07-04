@@ -121,26 +121,26 @@
 - **状态：** complete
 
 #### D2：`PortEntry.Key` 使用 struct
-- [ ] 新增 `PortEntryKey` readonly record struct
-- [ ] 更新 `PortEntry.Key`、`PortEntryViewModel.Key`、`_entriesByKey`、`_matchingKeys` 使用 struct
-- [ ] 添加 `PortEntryKeyTests` 单元测试
-- [ ] 构建/测试/发布/smoke test/提交
-- **状态：** in_progress
+- [x] 新增 `PortEntryKey` readonly record struct
+- [x] 更新 `PortEntry.Key`、`PortEntryViewModel.Key`、`_entriesByKey`、`_matchingKeys` 使用 struct
+- [x] 添加 `PortEntryKeyTests` 单元测试
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
 
 #### D3：`ApplyEntries` 批量 diff
-- [ ] 创建 `SuppressibleObservableCollection<T>`
-- [ ] 在 `ApplyEntries` 中批量 diff 并发出单个 `Reset` 事件
-- [ ] 验证滚动位置与展开状态保留
-- [ ] 构建/测试/发布/smoke test/提交
-- **状态：** pending
+- [x] 创建 `SuppressibleObservableCollection<T>`
+- [x] 在 `ApplyEntries` 中批量 diff 并发出单个 `Reset` 事件
+- [x] 验证滚动位置与展开状态保留
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
 
 #### D4：进程快照字典
-- [ ] 新增 `ProcessSnapshot` struct
-- [ ] `ProcessInspector.CaptureSnapshot` 一次读取所有进程信息
-- [ ] `CpuSampler` 和 `EnrichBasic`/`EnrichDetails` 使用快照字典
-- [ ] `PortScanner.Scan` 调用一次快照并传入 enrich
-- [ ] 构建/测试/发布/smoke test/提交
-- **状态：** pending
+- [x] 新增 `ProcessSnapshot` struct
+- [x] `ProcessInspector.CaptureSnapshot` 一次读取所有进程信息
+- [x] `CpuSampler` 和 `EnrichBasic`/`EnrichDetails` 使用快照字典
+- [x] `PortScanner.Scan` 调用一次快照并传入 enrich
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
 
 ## 关键问题
 

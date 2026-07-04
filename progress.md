@@ -230,23 +230,89 @@
   - `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
   - `scripts/smoke-test.ps1`
 
+### 阶段 D2：`PortEntry.Key` 使用 struct
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 新增 `PortEntryKey` readonly record struct（`Protocol`、`LocalAddress`、`LocalPort`、`ProcessId`）
+  - 将 `PortEntry.Key` 从字符串改为 `PortEntryKey`
+  - 将 `PortEntryViewModel.Key` 改为 `PortEntryKey`
+  - 将 `MainWindowViewModel` 中的 `_entriesByKey`、`_matchingKeys`、`liveKeys` 改为 `PortEntryKey` 类型，移除 `StringComparer.Ordinal`
+  - 新增 `PortLens.Core.Tests/PortEntryKeyTests.cs`，覆盖相等性、哈希码、`HashSet` 去重、`Dictionary` 值相等查找
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（50 个测试通过）
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 使用 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Core/Models/PortEntryKey.cs`
+  - `work/PortLens.Core/Models/PortEntry.cs`
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Core.Tests/PortEntryKeyTests.cs`
+
+### 阶段 D4：进程快照字典
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 新增 `ProcessSnapshot` readonly record struct（`Id`、`ProcessName`、`StartTime`、`WorkingSet64`、`TotalProcessorTime`、`ExecutablePath`）
+  - 在 `ProcessInspector` 中新增 `CaptureSnapshot` 方法，每次扫描只调用一次 `Process.GetProcesses()`
+  - 将 `CpuSampler.CalculateCpu` 改为接收 `processId` 和 `TotalProcessorTime`
+  - `EnrichBasic` 和 `EnrichDetails` 接收 `IReadOnlyDictionary<int, ProcessSnapshot>` 快照，避免重复打开进程
+  - `ReadProcessDetails` 从快照获取可执行路径，不再单独调用 `Process.GetProcessById`
+  - `PortScanner.Scan` 在 `PreloadProcessDetails` 后调用一次 `CaptureSnapshot`，并传入所有 enrich 调用
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（50 个测试通过）
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 使用 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Core/Models/ProcessSnapshot.cs`
+  - `work/PortLens.Core/Services/CpuSampler.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Core/Services/PortScanner.cs`
+
+### 阶段 D3：`ApplyEntries` 批量 diff
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 新建 `SuppressibleObservableCollection<T>`，支持在 suppression scope 内暂停通知，退出时发出单个 `Reset` 事件
+  - 将 `MainWindowViewModel._entries` 改为 `SuppressibleObservableCollection<PortEntryViewModel>`
+  - 重写 `ApplyEntries`：先 diff 并复用现有 VM，再按目标顺序构建新列表，最后调用 `ResetTo` 一次性更新
+  - 保留 `IsExpanded` 状态（VM 实例复用）
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（50 个测试通过）
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 使用 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/Collections/SuppressibleObservableCollection.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+
 ## 最终交付说明
 
-本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 9：
+本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 9 以及阶段 D1-D4：
 
 1. **工程基础建设**：创建 `PortLens.sln`、`Directory.Build.props`、`global.json`、`.editorconfig`，统一版本与代码风格。
 2. **核心代码重构**：拆分 `ProcessInspector` 为单一职责服务，引入 MVVM 与依赖注入。
 3. **性能优化**：CIM 按 PID 过滤、搜索防抖后台化、添加 `CancellationToken`、使用 `ConcurrentDictionary`。
 4. **可维护性与质量**：集中主题资源、设置版本迁移、添加文件日志、统一异常处理。
-5. **测试与 CI/CD**：创建 `PortLens.Core.Tests` 并编写 45 个单元测试，全部通过；创建 GitHub Actions 工作流。
+5. **测试与 CI/CD**：创建 `PortLens.Core.Tests` 并编写 50 个单元测试，全部通过；创建 GitHub Actions 工作流。
 6. **体验优化**：关闭按钮图标改为 `ChevronDown`，首次扫描增加加载状态。
 7. **验证与交付**：完整构建、测试、发布均验证通过；更新文档。
 8. **回归修复**：修复状态栏 CPU/内存/版本不显示、设置不持久化的问题。
 9. **性能优化 A/B/C**：UI 虚拟化、搜索/分组预计算、跨扫描 PowerShell/CIM 缓存，分别独立提交并通过验证。
+10. **阶段 D1**：原生命令行读取，移除 PowerShell/CIM 命令行依赖。
+11. **阶段 D2**：`PortEntryKey` struct，消除字符串 key 分配。
+12. **阶段 D4**：进程快照字典，减少重复进程打开。
+13. **阶段 D3**：`ApplyEntries` 批量 diff，减少 `CollectionChanged` 事件。
 
 最终状态：
 - `dotnet build PortLens.sln` 成功
-- `dotnet test PortLens.sln` 45 个测试通过
+- `dotnet test PortLens.sln` 50 个测试通过
 - `outputs/PortLensMaterial/PortLens.exe` 可正常启动
 - 所有规划文件已同步
 
@@ -255,7 +321,7 @@
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|
 | 发布 exe 启动 | 双击 `outputs/PortLensMaterial/PortLens.exe` | 应用窗口正常显示 | 应用窗口正常显示 | 通过 |
-| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 45 个测试通过，0 失败 | 通过 |
+| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 50 个测试通过，0 失败 | 通过 |
 
 ## 错误日志
 
@@ -268,11 +334,11 @@
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 9：性能优化 A/B/C 已完成 |
-| 我要去哪里？ | 根据 profiling 决定是否实施阶段 D 进阶优化 |
+| 我在哪里？ | 阶段 D3 已完成；阶段 D 全部完成 |
+| 我要去哪里？ | 根据用户反馈决定是否继续优化（如 UDP 支持、深色模式、历史图表等） |
 | 目标是什么？ | 系统性地优化 PortLens 的代码结构、性能、可维护性和用户体验 |
 | 我学到了什么？ | 见 findings.md |
-| 我做了什么？ | 已完成阶段 1 至阶段 9，性能优化 A/B/C 已分别提交并通过验证 |
+| 我做了什么？ | 已完成阶段 1 至阶段 9，以及阶段 D1/D2/D4/D3，均已独立提交并通过验证 |
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*
