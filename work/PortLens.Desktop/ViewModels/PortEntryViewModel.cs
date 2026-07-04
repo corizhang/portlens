@@ -46,7 +46,7 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     public string CommandText => _entry.CommandLine ?? _entry.ProcessName;
     public string DirectoryText => _entry.WorkingDirectory ?? _entry.ExecutablePath ?? "";
 
-    public string Key => $"{_entry.Protocol}:{_entry.LocalAddress}:{_entry.LocalPort}:{_entry.ProcessId}";
+    public PortEntryKey Key => new(_entry.Protocol, _entry.LocalAddress, _entry.LocalPort, _entry.ProcessId);
 
     public string SearchHaystack => _cachedSearchHaystack;
 

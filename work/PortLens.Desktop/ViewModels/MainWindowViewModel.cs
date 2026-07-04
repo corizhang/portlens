@@ -16,12 +16,12 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly PortScanner _scanner;
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
-    private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
+    private readonly Dictionary<PortEntryKey, PortEntryViewModel> _entriesByKey = new();
     private readonly object _refreshLock = new();
     private readonly DispatcherTimer _searchDebounceTimer;
     private CancellationTokenSource? _refreshCts;
     private CancellationTokenSource? _searchCts;
-    private HashSet<string> _matchingKeys = new(StringComparer.Ordinal);
+    private HashSet<PortEntryKey> _matchingKeys = new();
 
     private bool _showSystemPorts;
     private int _refreshIntervalSeconds = 5;
@@ -323,7 +323,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ApplyEntries(IReadOnlyList<PortEntry> entries)
     {
-        var liveKeys = entries.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
+        var liveKeys = entries.Select(entry => entry.Key).ToHashSet();
         foreach (var staleKey in _entriesByKey.Keys.Where(key => !liveKeys.Contains(key)).ToList())
         {
             var stale = _entriesByKey[staleKey];
@@ -381,13 +381,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 if (string.IsNullOrWhiteSpace(text))
                 {
-                    return entries.Select(entry => entry.Key).ToHashSet(StringComparer.Ordinal);
+                    return entries.Select(entry => entry.Key).ToHashSet();
                 }
 
                 return entries
                     .Where(entry => MatchesText(entry, text))
                     .Select(entry => entry.Key)
-                    .ToHashSet(StringComparer.Ordinal);
+                    .ToHashSet();
             }, cancellationToken);
 
             if (cancellationToken.IsCancellationRequested)
