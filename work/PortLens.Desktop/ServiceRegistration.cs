@@ -26,6 +26,7 @@ internal static class ServiceRegistration
         services.AddSingleton<PortScanner>();
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>(serviceProvider => new MainWindow(serviceProvider));
+        services.AddHttpClient<UpdateCheckService>();
 
         return services.BuildServiceProvider();
     }

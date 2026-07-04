@@ -32,17 +32,17 @@ jobs:
       - name: Compute version
         id: nbgv
         run: |
-          nbgv cloud
-          $version = (nbgv get-version -f json | ConvertFrom-Json).SimpleVersion
-          $packageVersion = (nbgv get-version -f json | ConvertFrom-Json).NuGetPackageVersion
-          "version=$version" >> $env:GITHUB_OUTPUT
-          "packageVersion=$packageVersion" >> $env:GITHUB_OUTPUT
+          nbgv cloud -s GitHubActions
+          $info = nbgv get-version -f json | ConvertFrom-Json
+          "version=$($info.SimpleVersion)" >> $env:GITHUB_OUTPUT
+          "packageVersion=$($info.NuGetPackageVersion)" >> $env:GITHUB_OUTPUT
+          "assemblyVersion=$($info.AssemblyInformationalVersion)" >> $env:GITHUB_OUTPUT
         shell: pwsh
       - name: Restore
         run: dotnet restore PortLens.sln
 
       - name: Build
-        run: dotnet build PortLens.sln --no-restore --configuration Release
+        run: dotnet build PortLens.sln --no-restore --configuration Release -p:Version='${{ steps.nbgv.outputs.version }}' -p:AssemblyVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:FileVersion='${{ steps.nbgv.outputs.version }}' -p:InformationalVersion='${{ steps.nbgv.outputs.assemblyVersion }}'
 
       - name: Test
         run: dotnet test PortLens.sln --no-build --configuration Release
@@ -50,6 +50,22 @@ jobs:
       - name: Publish
         shell: pwsh
         run: ./scripts/publish.ps1
+
+      - name: Build MSI installer
+        shell: pwsh
+        run: |
+          dotnet tool install --global wix --version 5.0.2 || true
+          $version = '${{ steps.nbgv.outputs.version }}'
+          $publishDir = Resolve-Path "outputs\PortLensMaterial"
+          dotnet build "installer\PortLens.Installer.wixproj" -c Release -p:PublishDir="$publishDir\" -p:ProductVersion=$version -o "outputs"
+          $msi = Get-ChildItem "outputs\*.msi" | Select-Object -First 1
+          if ($msi) {
+            $newName = "outputs\PortLens-v$version-win-x64.msi"
+            Move-Item $msi.FullName $newName -Force
+            Write-Host "Created $newName"
+          } else {
+            throw "MSI not found after build."
+          }
 
       - name: Package artifact
         shell: pwsh
@@ -71,5 +87,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: PortLens ${{ steps.nbgv.outputs.version }}
-          files: outputs/PortLens-v*.zip
+          files: |
+            outputs/PortLens-v*.zip
+            outputs/PortLens-v*.msi
           generate_release_notes: true

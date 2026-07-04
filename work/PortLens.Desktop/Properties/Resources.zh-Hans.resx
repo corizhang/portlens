@@ -436,6 +436,27 @@
   <data name="TrayStatusServicesFormat" xml:space="preserve">
     <value>{0} 个开发服务</value>
   </data>
+  <data name="UpdateAvailableFormat" xml:space="preserve">
+    <value>有可用更新：v{0} → v{1}</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>检查更新失败。</value>
+  </data>
+  <data name="UpdateCurrentVersionFormat" xml:space="preserve">
+    <value>当前版本：v{0}</value>
+  </data>
+  <data name="UpdateDownloadButton" xml:space="preserve">
+    <value>下载</value>
+  </data>
+  <data name="UpdateLatestVersionFormat" xml:space="preserve">
+    <value>最新版本：v{0}</value>
+  </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>有可用更新</value>
+  </data>
+  <data name="UpdateUpToDate" xml:space="preserve">
+    <value>PortLens 已是最新版本。</value>
+  </data>
   <data name="WindowTitle" xml:space="preserve">
     <value>PortLens</value>
   </data>

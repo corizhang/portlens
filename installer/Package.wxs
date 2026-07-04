@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="PortLens"
+           Manufacturer="PortLens"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+           Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of PortLens is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="PortLens" Level="1">
+      <ComponentGroupRef Id="PublishedFiles" />
+      <ComponentRef Id="ApplicationShortcut" />
+    </Feature>
+
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="PortLens">
+        <Component Id="ApplicationShortcut" Guid="12345678-1234-1234-1234-123456789012">
+          <Shortcut Id="PortLensStartMenuShortcut"
+                    Name="PortLens"
+                    Description="PortLens - Local development service monitor"
+                    Directory="ProgramMenuFolder"
+                    Target="[INSTALLFOLDER]PortLens.exe"
+                    WorkingDirectory="INSTALLFOLDER"
+                    Icon="portlens-icon.ico"
+                    IconIndex="0"
+                    Advertise="yes" />
+          <RemoveFolder Id="CleanupStartMenu" Directory="ProgramMenuFolder" On="uninstall" />
+          <RegistryValue Root="HKLM" Key="Software\PortLens" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
+        </Component>
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <Icon Id="portlens-icon.ico" SourceFile="portlens-icon.ico" />
+
+    <ui:WixUI Id="WixUI_Minimal" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+  </Package>
+</Wix>

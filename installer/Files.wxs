@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Fragment>
+    <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
+      <Component Id="PortLensExe" Guid="a1b2c3d4-1111-2222-3333-444444444444">
+        <File Id="PortLens.exe" Source="$(var.PublishDir)PortLens.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="PortLensDll" Guid="a1b2c3d4-1111-2222-3333-444444444445">
+        <File Id="PortLens.dll" Source="$(var.PublishDir)PortLens.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="PortLensCoreDll" Guid="a1b2c3d4-1111-2222-3333-444444444446">
+        <File Id="PortLens.Core.dll" Source="$(var.PublishDir)PortLens.Core.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MaterialDesignThemesDll" Guid="a1b2c3d4-1111-2222-3333-444444444447">
+        <File Id="MaterialDesignThemes.dll" Source="$(var.PublishDir)MaterialDesignThemes.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MaterialDesignColorsDll" Guid="a1b2c3d4-1111-2222-3333-444444444448">
+        <File Id="MaterialDesignColors.dll" Source="$(var.PublishDir)MaterialDesignColors.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsDependencyInjectionDll" Guid="a1b2c3d4-1111-2222-3333-444444444449">
+        <File Id="Microsoft.Extensions.DependencyInjection.dll" Source="$(var.PublishDir)Microsoft.Extensions.DependencyInjection.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsDependencyInjectionAbstractionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444a">
+        <File Id="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsLoggingDll" Guid="a1b2c3d4-1111-2222-3333-44444444444b">
+        <File Id="Microsoft.Extensions.Logging.dll" Source="$(var.PublishDir)Microsoft.Extensions.Logging.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsLoggingAbstractionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444c">
+        <File Id="Microsoft.Extensions.Logging.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.Logging.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsOptionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444d">
+        <File Id="Microsoft.Extensions.Options.dll" Source="$(var.PublishDir)Microsoft.Extensions.Options.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="MicrosoftExtensionsPrimitivesDll" Guid="a1b2c3d4-1111-2222-3333-44444444444e">
+        <File Id="Microsoft.Extensions.Primitives.dll" Source="$(var.PublishDir)Microsoft.Extensions.Primitives.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="SystemDiagnosticsDiagnosticSourceDll" Guid="a1b2c3d4-1111-2222-3333-44444444444f">
+        <File Id="System.Diagnostics.DiagnosticSource.dll" Source="$(var.PublishDir)System.Diagnostics.DiagnosticSource.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="AppIcon" Guid="a1b2c3d4-1111-2222-3333-444444444450">
+        <File Id="portlens-icon.ico" Source="$(var.PublishDir)portlens-icon.ico" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+  </Fragment>
+</Wix>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -24,9 +25,11 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _timer = new();
     private readonly DispatcherTimer _appMetricsTimer = new();
     private readonly DispatcherTimer _settingsSaveTimer = new();
+    private readonly DispatcherTimer _updateCheckTimer = new();
     private readonly DesktopSettingsStore _settingsStore = new();
     private readonly TrayIconService _trayIcon;
     private readonly PortEntryActionService _entryActions;
+    private readonly UpdateCheckService _updateCheckService;
     private readonly MainWindowViewModel _viewModel;
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     public SnackbarMessageQueue SnackbarMessageQueue { get; } = new(TimeSpan.FromSeconds(3));
@@ -42,6 +45,7 @@ public partial class MainWindow : Window
     public MainWindow(IServiceProvider serviceProvider)
     {
         InitializeComponent();
+        _logger = serviceProvider.GetService<ILogger<MainWindow>>();
         _settings = _settingsStore.Load();
         AppSettings.Instance.Apply(_settings);
         ThemeService.ApplyTheme(_settings.Theme);
@@ -51,6 +55,8 @@ public partial class MainWindow : Window
         _viewModel.RefreshIntervalChanged += (_, _) => UpdateScanTimerInterval();
         _viewModel.SnackbarRequested += (_, message) => ShowSnackbar(message);
         DataContext = _viewModel;
+
+        _updateCheckService = serviceProvider.GetRequiredService<UpdateCheckService>();
 
         ApplyPersistedSettings();
 
@@ -84,7 +90,16 @@ public partial class MainWindow : Window
         _appMetricsTimer.Tick += (_, _) => UpdateAppMetrics();
         _appMetricsTimer.Start();
 
-        Loaded += async (_, _) => await _viewModel.RefreshAsync();
+        Loaded += async (_, _) =>
+        {
+            await _viewModel.RefreshAsync();
+            _ = CheckForUpdatesAsync();
+        };
+
+        _updateCheckTimer.Interval = TimeSpan.FromHours(6);
+        _updateCheckTimer.Tick += (_, _) => _ = CheckForUpdatesAsync();
+        _updateCheckTimer.Start();
+
         LocationChanged += (_, _) => ScheduleSettingsSave();
         SizeChanged += (_, _) => ScheduleSettingsSave();
         StateChanged += (_, _) =>
@@ -632,4 +647,31 @@ public partial class MainWindow : Window
 
         return false;
     }
+
+    private async Task CheckForUpdatesAsync()
+    {
+        try
+        {
+            var update = await _updateCheckService.CheckAsync();
+            if (update?.IsUpdateAvailable != true)
+            {
+                return;
+            }
+
+            await Dispatcher.InvokeAsync(() =>
+            {
+                var message = Properties.Resources.GetString("UpdateAvailableFormat", update.CurrentVersion, update.LatestVersion);
+                SnackbarMessageQueue.Enqueue(
+                    message,
+                    Properties.Resources.GetString("UpdateDownloadButton"),
+                    () => Process.Start(new ProcessStartInfo(update.ReleaseUrl) { UseShellExecute = true }));
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogWarning(ex, "Update check failed.");
+        }
+    }
+
+    private readonly ILogger<MainWindow>? _logger;
 }

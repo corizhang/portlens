@@ -28,7 +28,26 @@
       "Bash(powershell.exe -ExecutionPolicy Bypass -File .\\\\scripts\\\\publish.ps1)",
       "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Administrator\\\\Documents\\\\Codex\\\\2026-07-01\\\\tu\\\\scripts\\\\capture-second-open.ps1\")",
       "Bash(powershell.exe -ExecutionPolicy Bypass -File \"C:\\\\Users\\\\Administrator\\\\Documents\\\\Codex\\\\2026-07-01\\\\tu\\\\scripts\\\\verify-second-open.ps1\")",
-      "Bash(del first-open.png second-open.png verify-*.png)"
+      "Bash(del first-open.png second-open.png verify-*.png)",
+      "Bash(dotnet tool *)",
+      "Bash(nbgv get-version *)",
+      "Bash(powershell.exe -Command \"\\(Get-ItemProperty 'work/PortLens.Desktop/bin/Release/net10.0-windows/PortLens.dll'\\).VersionInfo | Select-Object FileVersion, ProductVersion, ProductName\")",
+      "Bash(powershell.exe -Command ' *)",
+      "Bash(powershell.exe -Command \"\\(Get-ItemProperty 'work/PortLens.Desktop/bin/Release/net10.0-windows/PortLens.dll'\\).VersionInfo | Select-Object FileVersion, ProductVersion\")",
+      "Bash(powershell.exe -Command \"Get-Content 'work/PortLens.Core/PortLens.Core.csproj'\")",
+      "Bash(powershell.exe -Command \"\\(Get-ItemProperty 'work/PortLens.Core/bin/Release/net10.0-windows/PortLens.Core.dll'\\).VersionInfo | Select-Object FileVersion, ProductVersion\")",
+      "Bash(powershell.exe -Command \"\\(Get-ItemProperty 'work/PortLens.Core.Tests/bin/Release/net10.0-windows/PortLens.Core.Tests.dll'\\).VersionInfo | Select-Object FileVersion, ProductVersion\")",
+      "Bash(nbgv set-version *)",
+      "Bash(git tag *)",
+      "Bash(git push *)",
+      "Bash(gh run *)",
+      "WebFetch(domain:github.com)",
+      "Bash(git commit -m 'fix\\(ci\\): handle preinstalled newer nbgv on GitHub runners *)",
+      "Bash(git commit -m 'fix\\(ci\\): grant GITHUB_TOKEN write permission for releases *)",
+      "Bash(dotnet --list-sdks)",
+      "Bash(nbgv cloud *)",
+      "Bash(findstr wix *)",
+      "Bash(powershell.exe -Command \"Get-Content 'work/PortLens.Desktop/PortLens.Desktop.csproj'\")"
     ]
   }
 }

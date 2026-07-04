@@ -436,6 +436,27 @@
   <data name="TrayStatusServicesFormat" xml:space="preserve">
     <value>{0} development services</value>
   </data>
+  <data name="UpdateAvailableFormat" xml:space="preserve">
+    <value>Update available: v{0} → v{1}</value>
+  </data>
+  <data name="UpdateCheckFailed" xml:space="preserve">
+    <value>Update check failed.</value>
+  </data>
+  <data name="UpdateCurrentVersionFormat" xml:space="preserve">
+    <value>Current version: v{0}</value>
+  </data>
+  <data name="UpdateDownloadButton" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="UpdateLatestVersionFormat" xml:space="preserve">
+    <value>Latest version: v{0}</value>
+  </data>
+  <data name="UpdateTitle" xml:space="preserve">
+    <value>Update available</value>
+  </data>
+  <data name="UpdateUpToDate" xml:space="preserve">
+    <value>PortLens is up to date.</value>
+  </data>
   <data name="WindowTitle" xml:space="preserve">
     <value>PortLens</value>
   </data>
