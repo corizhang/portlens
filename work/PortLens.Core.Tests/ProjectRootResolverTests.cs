@@ -47,6 +47,58 @@ public class ProjectRootResolverTests : IDisposable
     }
 
     [Fact]
+    public void Resolve_AggregatesChildProjects_ToSharedParentRoot()
+    {
+        var root = CreateTempDir();
+        Directory.CreateDirectory(Path.Combine(root, ".git"));
+        var frontend = Path.Combine(root, "frontend");
+        var backend = Path.Combine(root, "backend");
+        Directory.CreateDirectory(frontend);
+        Directory.CreateDirectory(backend);
+        Directory.CreateDirectory(Path.Combine(frontend, ".vscode"));
+        Directory.CreateDirectory(Path.Combine(backend, ".vscode"));
+
+        Assert.Equal(root, ProjectRootResolver.Resolve(frontend));
+        Assert.Equal(root, ProjectRootResolver.Resolve(backend));
+    }
+
+    [Fact]
+    public void Resolve_KeepsWorkspaceContainerSemantics()
+    {
+        var root = CreateTempDir();
+        Directory.CreateDirectory(Path.Combine(root, ".git"));
+        var webDir = Path.Combine(root, "apps", "web");
+        Directory.CreateDirectory(webDir);
+        Directory.CreateDirectory(Path.Combine(webDir, ".vscode"));
+
+        Assert.Equal(webDir, ProjectRootResolver.Resolve(webDir));
+    }
+
+    [Fact]
+    public void ComputeRelativeSubtitle_ReturnsRelativePath_WhenUnderRoot()
+    {
+        var subtitle = ProjectRootResolver.ComputeRelativeSubtitle(
+            "C:\\Projects\\MyApp", "C:\\Projects\\MyApp\\frontend", "fallback");
+
+        Assert.Equal("frontend", subtitle);
+    }
+
+    [Fact]
+    public void ComputeRelativeSubtitle_ReturnsDisplayName_WhenSameAsRoot()
+    {
+        var subtitle = ProjectRootResolver.ComputeRelativeSubtitle(
+            "C:\\Projects\\MyApp", "C:\\Projects\\MyApp", "fallback");
+
+        Assert.Equal("MyApp", subtitle);
+    }
+
+    [Fact]
+    public void ComputeRelativeSubtitle_ReturnsFallback_WhenWorkingDirectoryMissing()
+    {
+        Assert.Equal("fallback", ProjectRootResolver.ComputeRelativeSubtitle("C:\\Projects", null, "fallback"));
+    }
+
+    [Fact]
     public void Resolve_ReturnsParent_WhenDirectoryIsChildProjectName()
     {
         var root = CreateTempDir();

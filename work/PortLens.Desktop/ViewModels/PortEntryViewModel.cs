@@ -95,7 +95,8 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
         _cachedProjectGroupKey = _cachedProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
         _cachedProjectGroupTitle = ProjectRootResolver.DisplayName(
             _cachedProjectRootDirectory ?? _entry.WorkingDirectory, DisplayName);
-        _cachedProjectGroupSubtitle = _cachedProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
+        _cachedProjectGroupSubtitle = ProjectRootResolver.ComputeRelativeSubtitle(
+            _cachedProjectRootDirectory, _entry.WorkingDirectory, DisplayName);
         _cachedSearchHaystack = string.Join(" ",
             _entry.LocalPort, _entry.ProcessId, _entry.ProcessName, _entry.ProjectName,
             _cachedProjectGroupTitle, _cachedProjectGroupSubtitle,

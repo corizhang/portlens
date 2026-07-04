@@ -31,7 +31,8 @@ public static class ProjectRootResolver
         var markerRoot = FindMarkerRoot(current);
         if (markerRoot is not null)
         {
-            return markerRoot.FullName;
+            var aggregated = TryAggregateToParent(markerRoot);
+            return aggregated?.FullName ?? markerRoot.FullName;
         }
 
         var parent = current.Parent;
@@ -62,6 +63,68 @@ public static class ProjectRootResolver
 
         var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
         return string.IsNullOrWhiteSpace(name) ? fallback : name;
+    }
+
+    /// <summary>
+    /// Computes a subtitle for a project group entry, preferring the path of <paramref name="workingDirectory"/>
+    /// relative to <paramref name="rootDirectory"/> so that entries grouped under a shared root remain distinguishable.
+    /// </summary>
+    public static string ComputeRelativeSubtitle(string? rootDirectory, string? workingDirectory, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return fallback;
+        }
+
+        if (string.IsNullOrWhiteSpace(rootDirectory))
+        {
+            return DisplayName(workingDirectory, fallback);
+        }
+
+        var root = rootDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var work = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (root.Equals(work, StringComparison.OrdinalIgnoreCase))
+        {
+            return DisplayName(workingDirectory, fallback);
+        }
+
+        if (work.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || work.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            var relative = work[(root.Length + 1)..];
+            return string.IsNullOrWhiteSpace(relative) ? DisplayName(workingDirectory, fallback) : relative;
+        }
+
+        return DisplayName(workingDirectory, fallback);
+    }
+
+    private static DirectoryInfo? TryAggregateToParent(DirectoryInfo markerRoot)
+    {
+        var parent = markerRoot.Parent;
+        if (parent is null)
+        {
+            return null;
+        }
+
+        if (!ChildProjectNames.Contains(markerRoot.Name))
+        {
+            return null;
+        }
+
+        // Keep existing workspace-container semantics (e.g. apps/web stays web).
+        if (WorkspaceContainerNames.Contains(parent.Name))
+        {
+            return null;
+        }
+
+        // Aggregate frontend/backend siblings into a shared parent project root.
+        if (HasRootMarker(parent))
+        {
+            return parent;
+        }
+
+        return null;
     }
 
     private static DirectoryInfo? FindMarkerRoot(DirectoryInfo start)
