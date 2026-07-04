@@ -39,7 +39,7 @@
         <File Id="System.Diagnostics.DiagnosticSource.dll" Source="$(var.PublishDir)System.Diagnostics.DiagnosticSource.dll" KeyPath="yes" />
       </Component>
       <Component Id="AppIcon" Guid="a1b2c3d4-1111-2222-3333-444444444450">
-        <File Id="portlens-icon.ico" Source="$(var.PublishDir)portlens-icon.ico" KeyPath="yes" />
+        <File Id="portlens_icon.ico" Source="$(var.PublishDir)portlens-icon.ico" KeyPath="yes" />
       </Component>
     </ComponentGroup>
   </Fragment>
