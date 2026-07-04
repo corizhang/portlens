@@ -9,11 +9,18 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     private PortEntry _entry;
     private bool _isExpanded;
 
+    private string? _cachedProjectRootDirectory;
+    private string _cachedProjectGroupKey = "";
+    private string _cachedProjectGroupTitle = "";
+    private string _cachedProjectGroupSubtitle = "";
+    private string _cachedSearchHaystack = "";
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public PortEntryViewModel(PortEntry entry)
     {
         _entry = entry;
+        RecalculateDerivedValues();
     }
 
     public int LocalPort => _entry.LocalPort;
@@ -24,10 +31,10 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     public string? WorkingDirectory => _entry.WorkingDirectory;
     public string? ExecutablePath => _entry.ExecutablePath;
     public string? ProcessDirectory => !string.IsNullOrWhiteSpace(_entry.ExecutablePath) ? Path.GetDirectoryName(_entry.ExecutablePath) : null;
-    public string? ProjectRootDirectory => ProjectRootResolver.Resolve(_entry.WorkingDirectory);
-    public string ProjectGroupKey => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
-    public string ProjectGroupTitle => ProjectRootResolver.DisplayName(ProjectRootDirectory ?? _entry.WorkingDirectory, DisplayName);
-    public string ProjectGroupSubtitle => ProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
+    public string? ProjectRootDirectory => _cachedProjectRootDirectory;
+    public string ProjectGroupKey => _cachedProjectGroupKey;
+    public string ProjectGroupTitle => _cachedProjectGroupTitle;
+    public string ProjectGroupSubtitle => _cachedProjectGroupSubtitle;
     public string Url => _entry.Url;
     public string PortText => $":{_entry.LocalPort}";
     public string DisplayName => _entry.DisplayName;
@@ -40,6 +47,8 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     public string DirectoryText => _entry.WorkingDirectory ?? _entry.ExecutablePath ?? "";
 
     public string Key => $"{_entry.Protocol}:{_entry.LocalAddress}:{_entry.LocalPort}:{_entry.ProcessId}";
+
+    public string SearchHaystack => _cachedSearchHaystack;
 
     public bool IsExpanded
     {
@@ -59,6 +68,7 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     public void Update(PortEntry entry)
     {
         _entry = entry;
+        RecalculateDerivedValues();
         OnPropertyChanged(nameof(ProcessName));
         OnPropertyChanged(nameof(ProjectName));
         OnPropertyChanged(nameof(Framework));
@@ -77,6 +87,19 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
         OnPropertyChanged(nameof(AddressText));
         OnPropertyChanged(nameof(CommandText));
         OnPropertyChanged(nameof(DirectoryText));
+    }
+
+    private void RecalculateDerivedValues()
+    {
+        _cachedProjectRootDirectory = ProjectRootResolver.Resolve(_entry.WorkingDirectory);
+        _cachedProjectGroupKey = _cachedProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
+        _cachedProjectGroupTitle = ProjectRootResolver.DisplayName(
+            _cachedProjectRootDirectory ?? _entry.WorkingDirectory, DisplayName);
+        _cachedProjectGroupSubtitle = _cachedProjectRootDirectory ?? _entry.WorkingDirectory ?? _entry.ProcessName;
+        _cachedSearchHaystack = string.Join(" ",
+            _entry.LocalPort, _entry.ProcessId, _entry.ProcessName, _entry.ProjectName,
+            _cachedProjectGroupTitle, _cachedProjectGroupSubtitle,
+            _entry.Framework, CommandText, DirectoryText);
     }
 
     private static string FormatUptime(TimeSpan? uptime)

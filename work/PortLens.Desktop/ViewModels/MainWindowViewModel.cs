@@ -411,8 +411,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private static bool MatchesText(PortEntryViewModel entry, string text)
     {
-        var haystack = string.Join(" ", entry.LocalPort, entry.ProcessId, entry.ProcessName, entry.ProjectName, entry.ProjectGroupTitle, entry.ProjectGroupSubtitle, entry.Framework, entry.CommandText, entry.DirectoryText);
-        return haystack.Contains(text, StringComparison.OrdinalIgnoreCase);
+        return entry.SearchHaystack.Contains(text, StringComparison.OrdinalIgnoreCase);
     }
 
     private static int NormalizeRefreshInterval(int seconds)
