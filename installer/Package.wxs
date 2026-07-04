@@ -23,9 +23,8 @@
                     Directory="ProgramMenuFolder"
                     Target="[INSTALLFOLDER]PortLens.exe"
                     WorkingDirectory="INSTALLFOLDER"
-                    Icon="portlens-icon.ico"
-                    IconIndex="0"
-                    Advertise="yes" />
+                    Icon="portlens_icon.ico"
+                    IconIndex="0" />
           <RemoveFolder Id="CleanupStartMenu" Directory="ProgramMenuFolder" On="uninstall" />
           <RegistryValue Root="HKLM" Key="Software\PortLens" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
         </Component>
@@ -34,7 +33,7 @@
 
     <StandardDirectory Id="ProgramMenuFolder" />
 
-    <Icon Id="portlens-icon.ico" SourceFile="portlens-icon.ico" />
+    <Icon Id="portlens_icon.ico" SourceFile="portlens-icon.ico" />
 
     <ui:WixUI Id="WixUI_Minimal" />
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
