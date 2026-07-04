@@ -5,7 +5,8 @@
            Manufacturer="PortLens"
            Version="$(var.ProductVersion)"
            UpgradeCode="a1b2c3d4-e5f6-7890-abcd-ef1234567890"
-           Scope="perMachine">
+           Scope="perMachine"
+           Platform="x64">
     <MajorUpgrade DowngradeErrorMessage="A newer version of PortLens is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
@@ -16,17 +17,17 @@
 
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="PortLens">
-        <Component Id="ApplicationShortcut" Guid="12345678-1234-1234-1234-123456789012">
-          <Shortcut Id="PortLensStartMenuShortcut"
-                    Name="PortLens"
-                    Description="PortLens - Local development service monitor"
-                    Directory="ProgramMenuFolder"
-                    Target="[INSTALLFOLDER]PortLens.exe"
-                    WorkingDirectory="INSTALLFOLDER"
-                    Icon="portlens_icon.ico"
-                    IconIndex="0" />
+        <Component Id="ApplicationShortcut" Guid="12345678-1234-1234-1234-123456789012" Bitness="always64">
+          <File Id="PortLens.exe" Source="$(var.PublishDir)PortLens.exe" KeyPath="yes">
+            <Shortcut Id="PortLensStartMenuShortcut"
+                      Name="PortLens"
+                      Description="PortLens - Local development service monitor"
+                      Directory="ProgramMenuFolder"
+                      WorkingDirectory="INSTALLFOLDER"
+                      Icon="portlens_icon.ico"
+                      IconIndex="0" />
+          </File>
           <RemoveFolder Id="CleanupStartMenu" Directory="ProgramMenuFolder" On="uninstall" />
-          <RegistryValue Root="HKLM" Key="Software\PortLens" Name="Installed" Type="integer" Value="1" KeyPath="yes" />
         </Component>
       </Directory>
     </StandardDirectory>
