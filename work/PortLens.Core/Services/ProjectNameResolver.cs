@@ -2,7 +2,7 @@ using System.Text.RegularExpressions;
 
 namespace PortLens.Services;
 
-internal static class ProjectNameResolver
+public static class ProjectNameResolver
 {
     private static readonly Regex QuotedWindowsPathRegex = new(@"""([A-Za-z]:\\[^""]+)""", RegexOptions.Compiled);
     private static readonly Regex UnquotedWindowsPathRegex = new(@"[A-Za-z]:\\[^\s""']+", RegexOptions.Compiled);

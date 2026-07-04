@@ -14,6 +14,8 @@ PortLens 是一款轻量级的 Windows 桌面工具，用于监控本地开发�
 - 可按项目分组显示服务
 - 支持端口黑名单和框架筛选规则
 - 自动保存窗口位置、扫描间隔等设置
+- 首次扫描显示加载状态
+- 关闭窗口隐藏到系统托盘（标题栏按钮语义明确）
 
 ## 环境要求
 
@@ -25,13 +27,19 @@ PortLens 是一款轻量级的 Windows 桌面工具，用于监控本地开发�
 ### 构建
 
 ```powershell
-dotnet build work/PortLens.Desktop/PortLens.Desktop.csproj
+dotnet build PortLens.sln
 ```
 
 ### 运行
 
 ```powershell
 dotnet run --project work/PortLens.Desktop/PortLens.Desktop.csproj
+```
+
+### 测试
+
+```powershell
+dotnet test PortLens.sln
 ```
 
 ### 发布
@@ -48,10 +56,23 @@ dotnet run --project work/PortLens.Desktop/PortLens.Desktop.csproj
 work/
   PortLens.Core/          # 核心类库：端口扫描、进程检查、框架推断
   PortLens.Desktop/       # WPF 桌面应用：UI、托盘、设置、用户操作
+  PortLens.Core.Tests/    # xUnit 单元测试
 scripts/
   publish.ps1             # 发布脚本
+.github/workflows/
+  ci.yml                  # GitHub Actions CI
 outputs/                  # 构建输出目录（已加入 .gitignore）
 ```
+
+## CI/CD
+
+项目配置了 GitHub Actions（`.github/workflows/ci.yml`），在 `push` 和 `pull_request` 时自动执行：
+
+- 还原依赖
+- 构建解决方案
+- 运行单元测试
+- 发布 Release 版本
+- 上传构建产物 artifact
 
 ## 使用说明
 

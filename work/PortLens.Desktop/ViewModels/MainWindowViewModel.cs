@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Reflection;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
@@ -13,7 +14,6 @@ namespace PortLens.Desktop.ViewModels;
 public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly PortScanner _scanner;
-    private readonly Func<string, Task> _showSnackbarAsync;
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly ObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<string, PortEntryViewModel> _entriesByKey = new(StringComparer.Ordinal);
@@ -32,13 +32,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _lastScanText = "Scan --:--:--";
     private DateTime? _lastScanAt;
     private bool _isRefreshing;
+    private bool _isLoading;
+    private bool _showAppMetrics = true;
+    private string _appResourceText = "CPU --  Mem --";
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
 
-    public MainWindowViewModel(PortScanner scanner, Func<string, Task> showSnackbarAsync, ILogger<MainWindowViewModel> logger)
+    public MainWindowViewModel(PortScanner scanner, ILogger<MainWindowViewModel> logger)
     {
         _scanner = scanner;
-        _showSnackbarAsync = showSnackbarAsync;
         _logger = logger;
 
         FilteredEntries = CollectionViewSource.GetDefaultView(_entries);
@@ -159,6 +161,54 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public bool IsEmpty => FilteredEntries.IsEmpty;
 
+    public bool ShowAppMetrics
+    {
+        get => _showAppMetrics;
+        set
+        {
+            if (_showAppMetrics == value)
+            {
+                return;
+            }
+
+            _showAppMetrics = value;
+            OnPropertyChanged(nameof(ShowAppMetrics));
+        }
+    }
+
+    public string AppResourceText
+    {
+        get => _appResourceText;
+        set
+        {
+            _appResourceText = value;
+            OnPropertyChanged(nameof(AppResourceText));
+        }
+    }
+
+    public string AppVersionText { get; } = $"v{GetAppVersion()}";
+
+    public bool IsLoading
+    {
+        get => _isLoading;
+        private set
+        {
+            if (_isLoading == value)
+            {
+                return;
+            }
+
+            _isLoading = value;
+            OnPropertyChanged(nameof(IsLoading));
+            OnPropertyChanged(nameof(EmptyTitle));
+            OnPropertyChanged(nameof(EmptySubtitle));
+        }
+    }
+
+    public string EmptyTitle => IsLoading ? "Scanning..." : "No development services found";
+
+    public string EmptySubtitle => IsLoading ? "Looking for local listening ports." : "Start a dev server, or enable System ports.";
+
     public IReadOnlyCollection<PortEntryViewModel> Entries => _entries;
 
     public event EventHandler? RefreshIntervalChanged;
@@ -179,6 +229,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _refreshCts = new CancellationTokenSource();
         var cancellationToken = _refreshCts.Token;
 
+        IsLoading = true;
         StatusText = "Scanning in background...";
         var showAll = ShowSystemPorts;
 
@@ -213,6 +264,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
         finally
         {
+            IsLoading = false;
             lock (_refreshLock)
             {
                 _isRefreshing = false;
@@ -262,9 +314,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         };
     }
 
+    public event EventHandler<string>? SnackbarRequested;
+
     public async Task ShowSnackbarAsync(string message)
     {
-        await _showSnackbarAsync(message);
+        await Task.Run(() => SnackbarRequested?.Invoke(this, message));
     }
 
     private void ApplyEntries(IReadOnlyList<PortEntry> entries)
@@ -391,6 +445,18 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+    private static string GetAppVersion()
+    {
+        var assembly = Assembly.GetExecutingAssembly();
+        var informationalVersion = assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion;
+        var version = !string.IsNullOrWhiteSpace(informationalVersion)
+            ? informationalVersion
+            : assembly.GetName().Version?.ToString(3);
+
+        return string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Split('+')[0];
     }
 }
 

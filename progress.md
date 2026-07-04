@@ -114,35 +114,126 @@
   - `work/PortLens.Core/Services/PortScanner.cs`
 
 ### 阶段 5：测试与 CI/CD
-- **状态：** pending
+- **状态：** complete
+- **开始时间：** 2026-07-03
+- **完成时间：** 2026-07-03
+- 执行的操作：
+  - 将 `ProjectRootResolver` 从 `PortLens.Desktop` 移到 `PortLens.Core`，并更新 `PortEntryViewModel` 引用
+  - 将 `FrameworkDetector`、`ProjectNameResolver`、`TcpRow` 改为 public 以支持测试
+  - 从 `PortScanner` 提取纯过滤/排序逻辑到 `PortScannerFilters`
+  - 创建 `work/PortLens.Core.Tests` xUnit 测试项目
+  - 添加 `FrameworkDetectorTests`、`ProjectNameResolverTests`、`ProjectRootResolverTests`、`PortScannerFiltersTests`
+  - 将测试项目加入 `PortLens.sln`
+  - 运行 `dotnet test PortLens.sln`，45 个测试全部通过
+  - 创建 `.github/workflows/ci.yml`，实现 PR/Push 触发构建、测试、发布产物并上传 artifact
+  - 运行 `powershell.exe ./scripts/publish.ps1` 验证发布
+- 创建/修改的文件：
+  - `work/PortLens.Core/Services/ProjectRootResolver.cs`
+  - `work/PortLens.Core/Services/PortScannerFilters.cs`
+  - `work/PortLens.Core/Services/FrameworkDetector.cs`
+  - `work/PortLens.Core/Services/ProjectNameResolver.cs`
+  - `work/PortLens.Core/Services/NativeTcp.cs`
+  - `work/PortLens.Core/Services/PortScanner.cs`
+  - `work/PortLens.Core.Tests/PortLens.Core.Tests.csproj`
+  - `work/PortLens.Core.Tests/FrameworkDetectorTests.cs`
+  - `work/PortLens.Core.Tests/ProjectNameResolverTests.cs`
+  - `work/PortLens.Core.Tests/ProjectRootResolverTests.cs`
+  - `work/PortLens.Core.Tests/PortScannerFiltersTests.cs`
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+  - `PortLens.sln`
+  - `.github/workflows/ci.yml`
 
 ### 阶段 6：功能补充与体验优化（低优先级）
-- **状态：** pending
+- **状态：** complete（核心体验项）
+- **开始时间：** 2026-07-03
+- **完成时间：** 2026-07-03
+- 执行的操作：
+  - 将标题栏隐藏到托盘按钮的图标从 `Close` 改为 `ChevronDown`，降低与窗口关闭的语义混淆
+  - 在 `MainWindowViewModel` 中增加 `IsLoading` 状态
+  - 空状态文案根据 `IsLoading` 在 "Scanning..." 与 "No development services found" 之间切换
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证
+  - 运行 `powershell.exe ./scripts/publish.ps1` 验证发布
+  - 启动发布后的 `PortLens.exe` 验证可正常运行
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/MainWindow.xaml`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
 
 ### 阶段 7：验证与交付
-- **状态：** pending
+- **状态：** complete
+- **开始时间：** 2026-07-03
+- **完成时间：** 2026-07-03
+- 执行的操作：
+  - 最终 `dotnet build PortLens.sln` 验证成功（0 警告，0 错误）
+  - 最终 `dotnet test PortLens.sln` 验证成功（45 个测试全部通过）
+  - 最终 `powershell.exe ./scripts/publish.ps1` 验证发布成功
+  - 更新 `README.md`：增加解决方案构建、测试命令、CI/CD 说明、项目结构、新功能描述
+  - 更新 `CLAUDE.md`：反映解决方案结构、DI/MVVM、测试、CI、日志、资源字典、提取的 `PortScannerFilters` 等
+- 创建/修改的文件：
+  - `README.md`
+  - `CLAUDE.md`
+
+### 阶段 8：修复状态栏与设置持久化回归
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 将 `AppResourceText`、`AppVersionText`、`ShowAppMetrics` 从 `MainWindow` 移到 `MainWindowViewModel`，使状态栏绑定与 `DataContext` 一致
+  - 移除 `MainWindow` 中反射刷新 `AppResourceText` 的 hack
+  - 修复 `materialDesign:Snackbar` 的 `MessageQueue` 绑定，使用 `RelativeSource={RelativeSource AncestorType=Window}` 指向 `MainWindow.SnackbarMessageQueue`
+  - 调整 `MainWindow` 构造顺序：先创建 `MainWindowViewModel` 并设置 `DataContext`，再调用 `ApplyPersistedSettings`
+  - 在 `ApplyPersistedSettings` 中通过 `BuildStateFromSettings()` 将加载的设置应用到 `MainWindowViewModel`
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证
+  - 运行 `powershell.exe ./scripts/publish.ps1` 验证发布
+  - 使用 UI 自动化验证发布后的 `PortLens.exe` 状态栏显示 `CPU 4.1%  Mem 183 MB` 和 `v0.1.0`
+  - 验证设置持久化：修改 `ShowSystemPorts`、`RefreshIntervalSeconds`、`ShowAppMetrics` 后重启应用，值保持不变
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Desktop/MainWindow.xaml.cs`
+  - `work/PortLens.Desktop/MainWindow.xaml`
+
+## 最终交付说明
+
+本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 7：
+
+1. **工程基础建设**：创建 `PortLens.sln`、`Directory.Build.props`、`global.json`、`.editorconfig`，统一版本与代码风格。
+2. **核心代码重构**：拆分 `ProcessInspector` 为单一职责服务，引入 MVVM 与依赖注入。
+3. **性能优化**：CIM 按 PID 过滤、搜索防抖后台化、添加 `CancellationToken`、使用 `ConcurrentDictionary`。
+4. **可维护性与质量**：集中主题资源、设置版本迁移、添加文件日志、统一异常处理。
+5. **测试与 CI/CD**：创建 `PortLens.Core.Tests` 并编写 45 个单元测试，全部通过；创建 GitHub Actions 工作流。
+6. **体验优化**：关闭按钮图标改为 `ChevronDown`，首次扫描增加加载状态。
+7. **验证与交付**：完整构建、测试、发布均验证通过；更新文档。
+
+最终状态：
+- `dotnet build PortLens.sln` 成功
+- `dotnet test PortLens.sln` 45 个测试通过
+- `outputs/PortLensMaterial/PortLens.exe` 可正常启动
+- 所有规划文件已同步
 
 ## 测试结果
 
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|
 | 发布 exe 启动 | 双击 `outputs/PortLensMaterial/PortLens.exe` | 应用窗口正常显示 | 应用窗口正常显示 | 通过 |
+| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 45 个测试通过，0 失败 | 通过 |
 
 ## 错误日志
 
 | 时间戳 | 错误 | 尝试次数 | 解决方案 |
 |--------|------|---------|---------|
 | 2026-07-03 | 发布 exe 双击无反应 | 1 | `MainWindowViewModel` 手动注册，`ShowSnackbarAsync` 改为 internal |
+| 2026-07-03 | 发布后应用进程运行但窗口不显示 | 2 | 移除 `ISnackbarService`，改用 `SnackbarRequested` 事件；`TrayIconService` 和 `PortEntryActionService` 改为在 `MainWindow` 中手动创建，打破 DI 循环依赖 |
 
 ## 五问重启检查
 
 | 问题 | 答案 |
 |------|------|
-| 我在哪里？ | 阶段 5：测试与 CI/CD |
-| 我要去哪里？ | 阶段 5-7：测试、CI/CD、功能补充、验证交付 |
+| 我在哪里？ | 阶段 7：验证与交付 |
+| 我要去哪里？ | 完成 README/CLAUDE.md 更新，做最终构建与发布验证 |
 | 目标是什么？ | 系统性地优化 PortLens 的代码结构、性能、可维护性和用户体验 |
 | 我学到了什么？ | 见 findings.md |
-| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3、阶段 4 |
+| 我做了什么？ | 已完成阶段 1、阶段 2、阶段 3、阶段 4、阶段 5、阶段 6、阶段 7 |
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*

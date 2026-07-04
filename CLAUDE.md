@@ -4,12 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-PortLens is a Windows-only WPF desktop app that monitors local TCP listening ports and surfaces development services. The repository uses a two-project layout under `work/`:
+PortLens is a Windows-only WPF desktop app that monitors local TCP listening ports and surfaces development services. The repository uses a solution file and a three-project layout under `work/`:
 
 - `PortLens.Core` — .NET 10 class library that owns port scanning, process inspection, and framework inference.
 - `PortLens.Desktop` — .NET 10 WPF executable (`<UseWPF>true</UseWPF>`), references Core, and owns the UI, tray icon, settings, and user actions.
-
-There is no `.sln` file; build and publish operate directly on the `.csproj` files.
+- `PortLens.Core.Tests` — xUnit test project covering the pure logic in Core.
 
 ## Common commands
 
@@ -18,13 +17,25 @@ All commands should be run from the repo root unless noted.
 ### Build
 
 ```powershell
-dotnet build work/PortLens.Desktop/PortLens.Desktop.csproj
+dotnet build PortLens.sln
 ```
 
 ### Run
 
 ```powershell
 dotnet run --project work/PortLens.Desktop/PortLens.Desktop.csproj
+```
+
+### Test
+
+```powershell
+dotnet test PortLens.sln
+```
+
+To run only Core tests:
+
+```powershell
+dotnet test work/PortLens.Core.Tests/PortLens.Core.Tests.csproj
 ```
 
 ### Publish
@@ -41,7 +52,9 @@ Optional parameters:
 ./scripts/publish.ps1 -Configuration Debug -Output outputs/PortLens
 ```
 
-There are no unit tests in this repository.
+### CI
+
+A GitHub Actions workflow in `.github/workflows/ci.yml` runs on pushes and PRs to `main`/`master`: restore, build, test, publish, and upload the `outputs/PortLensMaterial` artifact.
 
 ## Architecture notes
 
@@ -50,35 +63,41 @@ There are no unit tests in this repository.
 `PortScanner.Scan(PortScanOptions)` is the main entry point. It:
 
 1. Calls `NativeTcp.GetTcpListeners()` to read the TCP table via P/Invoke to `iphlpapi.dll` (IPv4 and IPv6).
-2. Filters to local listening addresses, groups by `Protocol + LocalPort + ProcessId`, and picks the preferred listener address (`127.0.0.1` > `0.0.0.0` > `::`/`[::]`).
+2. Uses `PortScannerFilters` to keep local listening addresses, group by `Protocol + LocalPort + ProcessId`, and pick the preferred listener address (`127.0.0.1` > `0.0.0.0` > `::`/`[::]`).
 3. Uses `ProcessInspector` to enrich each row with process name, CPU, memory, uptime, executable path, command line, working directory, framework, and project name.
 4. If `ShowAll` is false, drops entries whose framework is not in the configured `EnabledFrameworks` set.
 
 ### Process inspection
 
-`ProcessInspector` is the heaviest part of Core:
+`ProcessInspector` coordinates several focused services:
 
-- Command lines are fetched via PowerShell/CIM (`Win32_Process`), either one at a time or batched with `ReadMany`.
-- The current working directory is read from the process PEB via `NtQueryInformationProcess` and `ReadProcessMemory`.
-- Framework detection is string matching against a combined haystack of process name, command line, working directory, and executable path.
-- Project directory inference walks command-line paths looking for markers such as `node_modules`, `.csproj`, `.dll`, `.jar`, `manage.py`, etc.
-- CPU is computed across scans by comparing `Process.TotalProcessorTime` samples.
-- All heavy lookups are cached and pruned to live process IDs each scan.
+- `ProcessCommandLineReader` fetches command lines via PowerShell/CIM (`Win32_Process`), batched by PID.
+- `ProcessCurrentDirectoryReader` reads the current working directory from the process PEB.
+- `ProcessTreeReader` counts child processes.
+- `FrameworkDetector` infers frameworks from a combined haystack of process name, command line, working directory, and executable path.
+- `ProjectNameResolver` / `ProjectRootResolver` walk command-line paths and directory markers to infer project names and roots.
+- `CpuSampler` computes CPU by comparing `Process.TotalProcessorTime` samples.
+
+All heavy lookups are cached in `ConcurrentDictionary`s and pruned to live process IDs each scan.
 
 ### UI layer (`PortLens.Desktop`)
 
-`MainWindow` is the application shell. Important responsibilities:
+The UI uses MVVM and dependency injection:
 
-- Uses `PortScanner` on a background thread (`Task.Run`) and applies results to an `ObservableCollection<PortEntryViewModel>` via `ApplyEntries`. Existing viewmodels are reused and updated in place to avoid list flicker; new ones are inserted at the correct sorted position.
-- Filtering and grouping are done through WPF `CollectionViewSource`:
-  - Search filters on a joined string of port, PID, names, framework, command, and directory.
-  - Project grouping uses `PortEntryViewModel.ProjectGroupKey`, which is resolved by `ProjectRootResolver`.
-- A `DispatcherTimer` drives recurring scans. The interval slows from the user-selected foreground interval (3/5/10/30s) to at least 30s when the window is hidden or minimized.
-- Settings are persisted to `%APPDATA%/PortLens/settings.json` through `DesktopSettingsStore`.
+- `MainWindowViewModel` owns scan scheduling, search debouncing, filtering, grouping, blacklist, framework rules, and status-bar display state (`StatusText`, `ServiceCountText`, `LastScanText`, `AppResourceText`, `AppVersionText`, `ShowAppMetrics`). It exposes a `SnackbarRequested` event so the view can show snackbar messages without the view model depending on a UI service.
+- `MainWindow` is the view shell: window management, settings persistence, app metrics timer, tray interaction, and event handlers. It subscribes to `MainWindowViewModel.SnackbarRequested` and manually wires `TrayIconService` and `PortEntryActionService` to avoid DI cycles.
+- On startup, `MainWindow` creates the view model, sets `DataContext`, and then calls `ApplyPersistedSettings()`, which uses `BuildStateFromSettings()` + `MainWindowViewModel.ApplyState(...)` to hydrate the view model from `DesktopSettingsStore`. This order matters: settings must be applied after the view model exists.
+- `ServiceRegistration` wires Core services and `MainWindowViewModel` into a `Microsoft.Extensions.DependencyInjection` container. `MainWindow` is registered as a singleton factory because it must be created before the services that need to reference it.
+- Filtering and grouping use WPF `CollectionViewSource`:
+  - Search filters on a precomputed joined string of port, PID, names, framework, command, and directory.
+  - Project grouping uses `PortEntryViewModel.ProjectGroupKey` from `ProjectRootResolver`.
+- A `DispatcherTimer` drives recurring scans. The interval slows from the user-selected foreground interval (3/5/10/30s) to at least 30s when hidden or minimized.
+- Settings are persisted to `%APPDATA%/PortLens/settings.json` through `DesktopSettingsStore`, with versioned migrations.
+- `Themes/PortLensColors.xaml` and `Themes/PortLensStyles.xaml` centralize brushes and styles.
 
 ### Settings and dialogs
 
-- `DesktopSettings` is the persisted model. Defaults include the enabled framework list and UI flags.
+- `DesktopSettings` is the persisted model. Defaults include the enabled framework list and UI flags, plus a `Version` field for migrations.
 - `SettingsDialog` is a `UserControl` shown inside a MaterialDesign `DialogHost`. It has three tabs: General, Rules (framework toggles), and Blacklist (excluded ports).
 - `KillConfirmationDialog` builds its UI in code and returns `true`/`false` through the same `DialogHost`.
 
@@ -90,6 +109,10 @@ There are no unit tests in this repository.
 
 `PortEntryActionService` centralizes entry-level actions: open URL, copy URL/PID/command, open directories, open terminal (prefers `wt.exe`, falls back to PowerShell), and kill process tree. Killing calls `PortScanner.Kill`, which invokes `Process.Kill(entireProcessTree: true)` after user confirmation.
 
+### Logging
+
+`Microsoft.Extensions.Logging` is wired through DI. Desktop registers a custom `FileLoggerProvider` that writes warnings and errors to `%LocalAppData%\PortLens\logs\portlens-YYYYMMDD.log`. Global unhandled exceptions are logged via `App.xaml.cs` handlers.
+
 ## Important implementation details
 
 - The app targets `net10.0-windows` and is not cross-platform; the native TCP tables and process memory reads are Windows-only.
@@ -97,13 +120,20 @@ There are no unit tests in this repository.
 - `GlobalUsings.cs` in the Desktop project only imports `System.IO` globally.
 - The publish script uses `--self-contained false`, so the runtime must be installed on the target machine.
 - `outputs/` is gitignored and contains previously published standalone builds plus icon assets; do not check new build artifacts into git.
+- Avoid introducing DI cycles between `MainWindow` and `MainWindowViewModel`. `MainWindow` references the view model, but the view model must not depend on a service whose implementation depends on `MainWindow`. Use events or manual service construction in `MainWindow` when a service needs the window instance.
+- Because `MainWindow.DataContext` is `MainWindowViewModel`, XAML bindings resolve against the view model. Status-bar text, version text, and `ShowAppMetrics` live in `MainWindowViewModel`, not `MainWindow`. If a binding must target `MainWindow` itself (e.g., `SnackbarMessageQueue`), use `RelativeSource={RelativeSource AncestorType=Window}`.
 
 ## File paths worth knowing
 
 - Entry point: `work/PortLens.Desktop/App.xaml`
 - Main window: `work/PortLens.Desktop/MainWindow.xaml`
+- Main view model: `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+- DI registration: `work/PortLens.Desktop/ServiceRegistration.cs`
 - Scanning core: `work/PortLens.Core/Services/PortScanner.cs`
+- Filter logic: `work/PortLens.Core/Services/PortScannerFilters.cs`
 - Process enrichment: `work/PortLens.Core/Services/ProcessInspector.cs`
 - Native TCP table reader: `work/PortLens.Core/Services/NativeTcp.cs`
 - Settings model/store: `work/PortLens.Desktop/Settings/DesktopSettings.cs`, `DesktopSettingsStore.cs`
+- Tests: `work/PortLens.Core.Tests/`
 - Publish script: `scripts/publish.ps1`
+- CI workflow: `.github/workflows/ci.yml`

@@ -86,7 +86,7 @@
                         <materialDesign:PackIcon Kind="Minus" Width="17" Height="17" />
                     </Button>
                     <Button Style="{StaticResource MaterialDesignIconButton}" ToolTip="Hide to tray" Width="32" Height="32" Click="HideButton_Click">
-                        <materialDesign:PackIcon Kind="Close" Width="17" Height="17" />
+                        <materialDesign:PackIcon Kind="ChevronDown" Width="17" Height="17" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -419,12 +419,12 @@
                         VerticalAlignment="Center"
                         Visibility="{Binding IsEmpty, Converter={StaticResource BoolToVisibilityConverter}}">
                 <materialDesign:PackIcon Kind="LanDisconnect" Width="48" Height="48" Foreground="{StaticResource PortLensEmptyIconBrush}" HorizontalAlignment="Center" />
-                <TextBlock Text="No development services found" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource PortLensEmptyTitleBrush}" Margin="0,12,0,0" />
-                <TextBlock Text="Start a dev server, or enable System ports." Foreground="{StaticResource PortLensEmptySubtitleBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
+                <TextBlock Text="{Binding EmptyTitle}" FontSize="18" FontWeight="SemiBold" Foreground="{StaticResource PortLensEmptyTitleBrush}" Margin="0,12,0,0" />
+                <TextBlock Text="{Binding EmptySubtitle}" Foreground="{StaticResource PortLensEmptySubtitleBrush}" HorizontalAlignment="Center" Margin="0,4,0,0" />
             </StackPanel>
         </Grid>
     </DockPanel>
-    <materialDesign:Snackbar MessageQueue="{Binding SnackbarMessageQueue}"
+    <materialDesign:Snackbar MessageQueue="{Binding SnackbarMessageQueue, RelativeSource={RelativeSource AncestorType=Window}}"
                              HorizontalAlignment="Center"
                              VerticalAlignment="Bottom"
                              Margin="24,0,24,44" />

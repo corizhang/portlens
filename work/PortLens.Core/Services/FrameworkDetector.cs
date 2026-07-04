@@ -3,7 +3,7 @@ using PortLens.Models;
 
 namespace PortLens.Services;
 
-internal static class FrameworkDetector
+public static class FrameworkDetector
 {
     public static string InferFramework(PortEntry entry)
     {

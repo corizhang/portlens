@@ -1,6 +1,6 @@
 using System.ComponentModel;
 using PortLens.Models;
-using PortLens.Desktop.Services;
+using PortLens.Services;
 
 namespace PortLens.Desktop.ViewModels;
 

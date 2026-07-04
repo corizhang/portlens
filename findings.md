@@ -152,6 +152,81 @@
   - `powershell.exe ./scripts/publish.ps1` 成功发布到 `outputs/PortLensMaterial`。
   - 发布后的 `PortLens.exe` 可正常启动。
 
+## 阶段 5 结果
+
+- 创建了 `work/PortLens.Core.Tests` xUnit 测试项目，加入 `PortLens.sln`。
+- 将 `ProjectRootResolver` 从 Desktop 移动到 Core，使其可被核心测试覆盖。
+- 将 `FrameworkDetector`、`ProjectNameResolver`、`TcpRow` 改为 public，提取 `PortScanner` 的纯过滤/排序逻辑到 `PortScannerFilters`，提高可测试性。
+- 编写了 45 个单元测试，覆盖框架推断、项目名解析、项目根解析、地址过滤与排序、开发服务启用判断。
+- 运行 `dotnet test PortLens.sln` 全部通过。
+- 创建 `.github/workflows/ci.yml`，在 `windows-latest` 运行器上执行 restore/build/test/publish，并上传 `outputs/PortLensMaterial` 为 artifact。
+- 运行 `powershell.exe ./scripts/publish.ps1` 验证发布成功。
+
+## 遇到的问题
+
+| 问题 | 解决方案 |
+|------|---------|
+| xunit 属性无法识别 | 在测试文件中添加 `using Xunit;` |
+| 文件系统测试受环境祖先目录（如 `.git`）影响 | 将临时目录创建到驱动器根目录，避免扫描到无关的 marker |
+| 发布时 `PortLens.exe` 正在运行锁定输出文件 | 使用 `Stop-Process -Name PortLens -Force` 结束后重新发布 |
+
+## 阶段 6 结果
+
+- 将标题栏隐藏到托盘按钮的图标从 `Close` 改为 `ChevronDown`，减少用户将其误认为关闭窗口的歧义。
+- 在 `MainWindowViewModel` 增加 `IsLoading` 状态，首次扫描时空状态显示 "Scanning..."，扫描完成后再显示 "No development services found"。
+- UDP 端口支持、端口冲突提示、历史图表、深色模式等列为后续可扩展项，未纳入本次调整。
+
+## 阶段 7 后续修复
+
+### 问题
+
+用户报告发布后应用无法启动，且没有任何报错或提示。排查发现：
+
+- 事件查看器中的旧错误（21:33:48）是之前 `Func<string, Task>` 无法解析的问题。
+- 当前问题更严重：进程在运行，但主窗口没有创建（`MainWindowHandle=0`，`Visible=False`）。
+- 通过文件诊断日志发现 `MainWindow` 构造函数被无限递归调用。
+
+### 根因
+
+在阶段 5/6 的优化中，我将 `ISnackbarService` 的实现指向 `MainWindow` 单例，导致 DI 循环依赖：
+
+```
+MainWindow (构造中)
+  → MainWindowViewModel
+    → ISnackbarService
+      → MainWindow (再次请求，因为第一次还在构造中)
+        → MainWindowViewModel
+          → ...
+```
+
+DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `InitializeComponent()`，但没有一个能完成构造，因此没有主窗口句柄，应用表现为“无反应”。异常被 `DispatcherUnhandledException` 处理（`e.Handled = true`），所以用户看不到报错。
+
+### 修复
+
+1. 移除 `ISnackbarService` 接口。
+2. `MainWindowViewModel` 通过 `SnackbarRequested` 事件通知需要显示 snackbar，不再依赖 UI 服务。
+3. `MainWindow` 订阅 `SnackbarRequested` 事件。
+4. `TrayIconService` 和 `PortEntryActionService` 改为在 `MainWindow` 构造函数中手动创建，避免 DI 解析 `Window`、`Action<string>`、`Func<Task>` 等类型。
+5. `ServiceRegistration` 简化为只注册 Core 服务和 `MainWindowViewModel`。
+6. 恢复 `App.xaml.cs` 中 `e.Handled = true`，避免未处理异常导致崩溃。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 45 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- 使用 `EnumWindows` 检查：发布后的 `PortLens.exe` 进程拥有一个标题为 "PortLens" 的可见窗口。
+
+## 最终状态摘要
+
+| 检查项 | 状态 |
+|--------|------|
+| 构建 | `dotnet build PortLens.sln` 成功 |
+| 测试 | 45 个单元测试全部通过 |
+| 发布 | `outputs/PortLensMaterial/PortLens.exe` 生成且窗口正常显示 |
+| CI/CD | `.github/workflows/ci.yml` 已配置 |
+| 文档 | `README.md` / `CLAUDE.md` 已更新 |
+
 ## 资源
 
 - [PortLens.Core 项目文件](work/PortLens.Core/PortLens.Core.csproj)
@@ -178,6 +253,49 @@
 
 - 无
 
+## 阶段 8：状态栏与设置持久化回归修复
+
+### 问题
+
+用户报告：
+- 状态栏不再显示 CPU/内存信息和版本号。
+- 设置似乎在应用重启后没有持久化。
+
+### 根因
+
+1. **状态栏绑定失效**
+   - `MainWindow` 的 `DataContext` 被设置为 `MainWindowViewModel`。
+   - 但 `AppResourceText`、`AppVersionText`、`ShowAppMetrics` 定义在 `MainWindow`（code-behind）上，导致 XAML 的 `{Binding ...}` 在 ViewModel 中找不到这些属性。
+   - 特别是 `ShowAppMetrics` 绑定失败时，相关 Visibility 默认为 Collapsed，进一步隐藏了 CPU/内存区域。
+   - `materialDesign:Snackbar` 的 `MessageQueue` 同样绑定到 `MainWindow.SnackbarMessageQueue`，也失效。
+
+2. **设置未应用到 ViewModel**
+   - `MainWindow` 构造函数先调用 `ApplyPersistedSettings()`，再创建 `MainWindowViewModel`。
+   - `ApplyPersistedSettings` 只设置了本地字段（`_rememberWindowPlacement`、`_closeToTray`、`_showAppMetrics`），没有将 `_settings` 中的 `ShowSystemPorts`、`RefreshIntervalSeconds`、`GroupByProject`、`ExcludedPorts`、`EnabledFrameworks` 等应用到 ViewModel。
+   - 结果 ViewModel 使用默认值，随后 `SaveSettings` 把这些默认值写回磁盘，覆盖用户之前的设置。
+
+### 修复
+
+1. 将 `AppResourceText`、`AppVersionText`、`ShowAppMetrics` 移到 `MainWindowViewModel`，并在 `MainWindow.UpdateAppMetrics` 中通过 `_viewModel.AppResourceText` 更新。
+2. 使用 `RelativeSource={RelativeSource AncestorType=Window}` 修复 `Snackbar.MessageQueue` 绑定。
+3. 调整 `MainWindow` 构造顺序：先创建 ViewModel、设置 `DataContext`，再调用 `ApplyPersistedSettings`。
+4. 新增 `BuildStateFromSettings()`，将加载的设置转换为 `MainWindowState` 并调用 `_viewModel.ApplyState(...)`。
+5. 统一通过 `_viewModel.ShowAppMetrics` 读写“显示应用指标”设置。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 45 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- UI 自动化读取到发布后的 `PortLens.exe` 状态栏文本：
+  - `Development services`
+  - `1 services`
+  - `Scan 10:13:24`
+  - `CPU 4.1%  Mem 183 MB`
+  - `v0.1.0`
+- 设置持久化验证：预修改 `ShowSystemPorts=true`、`RefreshIntervalSeconds=30`、`ShowAppMetrics=false`，重启应用后设置保持不变。
+
 ---
+
 *每执行2次查看/浏览器/搜索操作后更新此文件*
 *防止视觉信息丢失*

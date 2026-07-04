@@ -1,6 +1,6 @@
-namespace PortLens.Desktop.Services;
+namespace PortLens.Services;
 
-internal static class ProjectRootResolver
+public static class ProjectRootResolver
 {
     private static readonly HashSet<string> ChildProjectNames = new(StringComparer.OrdinalIgnoreCase)
     {

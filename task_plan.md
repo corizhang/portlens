@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 5
+阶段 7
 
 ## 各阶段
 
@@ -54,32 +54,32 @@
 - **状态：** complete
 
 ### 阶段 5：测试与 CI/CD
-- [ ] 创建单元测试项目 `PortLens.Core.Tests`
+- [x] 创建单元测试项目 `PortLens.Core.Tests`
   - 覆盖 `FrameworkDetector`
   - 覆盖 `ProjectNameResolver`
   - 覆盖 `ProjectRootResolver`
   - 覆盖 `PortScanner` 的核心过滤/排序逻辑
-- [ ] 创建 GitHub Actions 工作流
+- [x] 创建 GitHub Actions 工作流
   - PR 触发构建
   - 运行测试
   - 构建 Release 产物
-- **状态：** pending
+- **状态：** complete
 
 ### 阶段 6：功能补充与体验优化（低优先级）
-- [ ] 将关闭按钮图标语义改为隐藏到托盘（或添加提示）
-- [ ] 首次扫描增加加载状态
-- [ ] 考虑 UDP 端口支持
-- [ ] 考虑端口冲突提示
-- [ ] 考虑历史图表（CPU/内存/端口变化）
-- [ ] 考虑深色模式
-- **状态：** pending
+- [x] 将关闭按钮图标语义改为隐藏到托盘（使用 `ChevronDown` 替代 `Close`）
+- [x] 首次扫描增加加载状态（`IsLoading` 与空状态文案联动）
+- [ ] 考虑 UDP 端口支持（超出本次范围）
+- [ ] 考虑端口冲突提示（超出本次范围）
+- [ ] 考虑历史图表（CPU/内存/端口变化）（超出本次范围）
+- [ ] 考虑深色模式（资源字典已集中，便于未来扩展）
+- **状态：** complete（核心体验项已完成）
 
 ### 阶段 7：验证与交付
-- [ ] 完整构建验证
-- [ ] 发布脚本验证
-- [ ] 更新 `README.md` 和 `CLAUDE.md`
-- [ ] 将所有变更整理为最终交付说明
-- **状态：** pending
+- [x] 完整构建验证
+- [x] 发布脚本验证
+- [x] 更新 `README.md` 和 `CLAUDE.md`
+- [x] 将所有变更整理为最终交付说明
+- **状态：** complete
 
 ## 关键问题
 

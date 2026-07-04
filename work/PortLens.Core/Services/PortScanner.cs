@@ -20,10 +20,10 @@ public sealed class PortScanner
     {
         cancellationToken.ThrowIfCancellationRequested();
         var rows = NativeTcp.GetTcpListeners()
-            .Where(row => IsLocalAddress(row.LocalAddress))
+            .Where(row => PortScannerFilters.IsLocalAddress(row.LocalAddress))
             .Where(row => !options.ExcludedPorts.Contains(row.LocalPort))
             .GroupBy(row => new { row.Protocol, row.LocalPort, row.ProcessId })
-            .Select(SelectPreferredListener)
+            .Select(PortScannerFilters.SelectPreferredListener)
             .OrderBy(row => row.LocalPort)
             .ThenBy(row => row.ProcessId)
             .ToList();
@@ -46,7 +46,7 @@ public sealed class PortScanner
             };
 
             _inspector.EnrichBasic(entry, cancellationToken);
-            if (!options.ShowAll && !IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
+            if (!options.ShowAll && !PortScannerFilters.IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
             {
                 continue;
             }
@@ -61,49 +61,4 @@ public sealed class PortScanner
     public void Kill(int processId) => _inspector.Kill(processId);
 
     public int CountChildProcesses(int processId) => _inspector.CountChildProcesses(processId);
-
-    private static bool IsLocalAddress(string address)
-    {
-        return address is "0.0.0.0" or "127.0.0.1" or "::" or "::1"
-            || address.StartsWith("127.", StringComparison.Ordinal)
-            || address.StartsWith("[::]", StringComparison.Ordinal);
-    }
-
-    private static TcpRow SelectPreferredListener(IEnumerable<TcpRow> rows)
-    {
-        return rows
-            .OrderBy(row => GetAddressPriority(row.LocalAddress))
-            .ThenBy(row => row.LocalAddress, StringComparer.Ordinal)
-            .First();
-    }
-
-    private static int GetAddressPriority(string address)
-    {
-        if (address is "127.0.0.1" or "::1" || address.StartsWith("127.", StringComparison.Ordinal))
-        {
-            return 0;
-        }
-
-        if (address is "0.0.0.0")
-        {
-            return 1;
-        }
-
-        if (address is "::" || address.StartsWith("[::]", StringComparison.Ordinal))
-        {
-            return 2;
-        }
-
-        return 3;
-    }
-
-    private static bool IsEnabledDevelopmentService(PortEntry entry, IReadOnlySet<string> enabledFrameworks)
-    {
-        if (!entry.IsRecognizedDevelopmentService || string.IsNullOrWhiteSpace(entry.Framework))
-        {
-            return false;
-        }
-
-        return enabledFrameworks.Contains(entry.Framework);
-    }
 }

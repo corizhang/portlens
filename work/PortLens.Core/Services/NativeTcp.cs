@@ -146,4 +146,4 @@ internal static class NativeTcp
     }
 }
 
-internal sealed record TcpRow(string Protocol, string LocalAddress, int LocalPort, string State, int ProcessId);
+public sealed record TcpRow(string Protocol, string LocalAddress, int LocalPort, string State, int ProcessId);

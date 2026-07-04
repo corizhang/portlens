@@ -3,7 +3,6 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Globalization;
-using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -34,7 +33,6 @@ public partial class MainWindow : Window
     private bool _isApplyingSettings;
     private bool _rememberWindowPlacement = true;
     private bool _closeToTray = true;
-    private bool _showAppMetrics = true;
     private bool _isScanPaused;
     private bool _isExiting;
     private TimeSpan _lastAppCpuTime;
@@ -44,14 +42,27 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
-        ApplyPersistedSettings();
 
         _viewModel = serviceProvider.GetRequiredService<MainWindowViewModel>();
         _viewModel.RefreshIntervalChanged += (_, _) => UpdateScanTimerInterval();
+        _viewModel.SnackbarRequested += (_, message) => ShowSnackbar(message);
         DataContext = _viewModel;
 
-        _entryActions = serviceProvider.GetRequiredService<PortEntryActionService>();
-        _trayIcon = serviceProvider.GetRequiredService<TrayIconService>();
+        ApplyPersistedSettings();
+
+        _entryActions = new PortEntryActionService(
+            serviceProvider.GetRequiredService<PortScanner>(),
+            message => ShowSnackbar(message),
+            () => _viewModel.RefreshAsync());
+        _trayIcon = new TrayIconService(
+            this,
+            ShowMainWindow,
+            () => _viewModel.RefreshAsync(),
+            ShowSettingsDialogAsync,
+            () => _isScanPaused = !_isScanPaused,
+            CopyPortSummary,
+            GetTrayStatus,
+            ExitApplication);
 
         _settingsSaveTimer.Interval = TimeSpan.FromMilliseconds(600);
         _settingsSaveTimer.Tick += (_, _) =>
@@ -83,20 +94,6 @@ public partial class MainWindow : Window
 
     public MainWindowViewModel ViewModel => _viewModel;
 
-    public string AppVersionText { get; } = $"v{GetAppVersion()}";
-
-    public string AppResourceText
-    {
-        get => _appResourceText;
-        set
-        {
-            _appResourceText = value;
-            // DataContext is ViewModel; this property is bound via window resources in code-behind only
-        }
-    }
-
-    private string _appResourceText = "CPU --  Mem --";
-
     private void UpdateAppMetrics()
     {
         try
@@ -120,27 +117,12 @@ public partial class MainWindow : Window
 
             _lastAppMetricsAt = now;
             _lastAppCpuTime = totalCpu;
-            AppResourceText = $"CPU {cpuText}  Mem {memoryMb:0} MB";
-            // Refresh binding for the status bar
-            GetType().GetProperty(nameof(AppResourceText))?.GetSetMethod()?.Invoke(this, [AppResourceText]);
+            _viewModel.AppResourceText = $"CPU {cpuText}  Mem {memoryMb:0} MB";
         }
         catch
         {
-            AppResourceText = "CPU --  Mem --";
+            _viewModel.AppResourceText = "CPU --  Mem --";
         }
-    }
-
-    private static string GetAppVersion()
-    {
-        var assembly = Assembly.GetExecutingAssembly();
-        var informationalVersion = assembly
-            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
-            .InformationalVersion;
-        var version = !string.IsNullOrWhiteSpace(informationalVersion)
-            ? informationalVersion
-            : assembly.GetName().Version?.ToString(3);
-
-        return string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Split('+')[0];
     }
 
     private void MainWindow_Closing(object? sender, CancelEventArgs e)
@@ -185,7 +167,7 @@ public partial class MainWindow : Window
         _rememberWindowPlacement = dialogResult.RememberWindowPlacement;
         _closeToTray = dialogResult.CloseToTray;
         _viewModel.GroupByProject = dialogResult.GroupByProject;
-        _showAppMetrics = dialogResult.ShowAppMetrics;
+        _viewModel.ShowAppMetrics = dialogResult.ShowAppMetrics;
         _viewModel.ApplyState(new MainWindowState
         {
             ShowSystemPorts = dialogResult.ShowSystemPorts,
@@ -261,7 +243,8 @@ public partial class MainWindow : Window
         {
             _rememberWindowPlacement = _settings.RememberWindowPlacement;
             _closeToTray = _settings.CloseToTray;
-            _showAppMetrics = _settings.ShowAppMetrics;
+            _viewModel.ShowAppMetrics = _settings.ShowAppMetrics;
+            _viewModel.ApplyState(BuildStateFromSettings());
 
             if (_settings.RememberWindowPlacement && IsUsableWindowPlacement(_settings))
             {
@@ -311,6 +294,19 @@ public partial class MainWindow : Window
                top < SystemParameters.VirtualScreenTop + SystemParameters.VirtualScreenHeight;
     }
 
+    private MainWindowState BuildStateFromSettings()
+    {
+        return new MainWindowState
+        {
+            SearchText = _settings.SearchText,
+            ShowSystemPorts = _settings.ShowSystemPorts,
+            RefreshIntervalSeconds = _settings.RefreshIntervalSeconds,
+            GroupByProject = _settings.GroupByProject,
+            ExcludedPorts = _settings.ExcludedPorts,
+            EnabledFrameworks = _settings.EnabledFrameworks
+        };
+    }
+
     private void ScheduleSettingsSave()
     {
         if (_isApplyingSettings)
@@ -336,7 +332,7 @@ public partial class MainWindow : Window
         _settings.RememberWindowPlacement = _rememberWindowPlacement;
         _settings.CloseToTray = _closeToTray;
         _settings.GroupByProject = state.GroupByProject;
-        _settings.ShowAppMetrics = _showAppMetrics;
+        _settings.ShowAppMetrics = _viewModel.ShowAppMetrics;
         _settings.ExcludedPorts = state.ExcludedPorts.ToList();
         _settings.EnabledFrameworks = state.EnabledFrameworks.ToList();
         _settings.IsMaximized = WindowState == WindowState.Maximized;
@@ -403,7 +399,7 @@ public partial class MainWindow : Window
         });
         _rememberWindowPlacement = true;
         _closeToTray = true;
-        _showAppMetrics = true;
+        _viewModel.ShowAppMetrics = true;
         _settings.WindowLeft = null;
         _settings.WindowTop = null;
         _settings.WindowWidth = null;
@@ -420,7 +416,7 @@ public partial class MainWindow : Window
             RememberWindowPlacement = _rememberWindowPlacement,
             CloseToTray = _closeToTray,
             GroupByProject = _viewModel.GroupByProject,
-            ShowAppMetrics = _showAppMetrics,
+            ShowAppMetrics = _viewModel.ShowAppMetrics,
             ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
             EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
         });

@@ -24,16 +24,7 @@ internal static class ServiceRegistration
         services.AddSingleton<ProcessTreeReader>();
         services.AddSingleton<ProcessInspector>();
         services.AddSingleton<PortScanner>();
-        services.AddSingleton<MainWindowViewModel>(serviceProvider =>
-        {
-            var scanner = serviceProvider.GetRequiredService<PortScanner>();
-            var mainWindow = serviceProvider.GetRequiredService<MainWindow>();
-            var logger = serviceProvider.GetRequiredService<ILogger<MainWindowViewModel>>();
-            return new MainWindowViewModel(scanner, message => mainWindow.ShowSnackbarAsync(message), logger);
-        });
-        services.AddTransient<PortEntryActionService>();
-        services.AddTransient<TrayIconService>();
-
+        services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>(serviceProvider => new MainWindow(serviceProvider));
 
         return services.BuildServiceProvider();

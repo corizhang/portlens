@@ -6,6 +6,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortLens.Core", "work\PortL
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortLens.Desktop", "work\PortLens.Desktop\PortLens.Desktop.csproj", "{22222222-2222-2222-2222-222222222222}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortLens.Core.Tests", "work\PortLens.Core.Tests\PortLens.Core.Tests.csproj", "{355898F9-7847-46FE-A1BA-FF2737ADD043}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,5 +22,9 @@ Global
 		{22222222-2222-2222-2222-222222222222}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{22222222-2222-2222-2222-222222222222}.Release|Any CPU.Build.0 = Release|Any CPU
+		{355898F9-7847-46FE-A1BA-FF2737ADD043}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{355898F9-7847-46FE-A1BA-FF2737ADD043}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{355898F9-7847-46FE-A1BA-FF2737ADD043}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{355898F9-7847-46FE-A1BA-FF2737ADD043}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
