@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 7
+阶段 8
 
 ## 各阶段
 
@@ -79,7 +79,43 @@
 - [x] 发布脚本验证
 - [x] 更新 `README.md` 和 `CLAUDE.md`
 - [x] 将所有变更整理为最终交付说明
+- [x] 提交 Git 并修复状态栏/设置持久化回归
 - **状态：** complete
+
+### 阶段 8：性能优化 - UI 虚拟化与列表渲染
+- [ ] 将主列表从 `ItemsControl + ScrollViewer` 替换为支持虚拟化的容器
+  - 保持现有视觉样式和交互（ContextMenu、Expander、按钮等）
+  - 启用 `VirtualizingStackPanel` 并设置 `ScrollViewer.CanContentScroll="True"`
+  - 验证分组（`GroupStyle`）与虚拟化兼容
+- [ ] 验证大量条目（模拟 100+/500+ 端口）时滚动和刷新仍流畅
+- [ ] 更新 `progress.md` 和 `findings.md`
+- **状态：** pending
+
+### 阶段 9：性能优化 - 搜索与分组预计算
+- [ ] 在 `PortEntryViewModel.Update()` 中预计算搜索 haystack 并缓存
+- [ ] 在 `PortEntryViewModel.Update()` 中预计算并缓存 `ProjectRootDirectory`、`ProjectGroupKey`、`ProjectGroupTitle`、`ProjectGroupSubtitle`
+- [ ] 调整 `MainWindowViewModel.MatchesText` 使用预计算缓存
+- [ ] 验证分组显示和搜索过滤结果与优化前一致
+- [ ] 添加/更新相关单元测试（如预计算缓存行为）
+- [ ] 更新 `progress.md` 和 `findings.md`
+- **状态：** pending
+
+### 阶段 10：性能优化 - 跨扫描缓存 PowerShell/CIM 结果
+- [ ] 在 `ProcessCommandLineReader` 中引入按 PID 的跨扫描缓存（带 TTL，如 60s）
+  - 仅当 PID 在目标集合中且缓存未命中/过期时才启动 PowerShell
+  - 扫描结束时按 live PIDs prune
+- [ ] 将 `ProcessTreeReader.CountDescendants` 改为依赖同一进程快照，避免单独 PowerShell 调用
+  - 先评估是否可与命令行读取合并；若不能，至少共享缓存
+- [ ] 验证刷新间隔缩短时 CPU 占用明显下降
+- [ ] 更新 `progress.md` 和 `findings.md`
+- **状态：** pending
+
+### 阶段 11：进阶性能优化（可选，视前阶段收益决定）
+- [ ] 评估用 `NtQuerySystemInformation` 原生读取进程命令线，替换 PowerShell/CIM
+- [ ] 评估 `PortEntry.Key` 使用 struct 替代字符串，减少字典 key 分配
+- [ ] 评估 `ApplyEntries` 使用批量 diff 算法，减少 `CollectionChanged` 事件
+- [ ] 评估 `ProcessInspector.EnrichBasic` 使用进程快照字典，减少 `Process.GetProcessById` 异常开销
+- **状态：** pending
 
 ## 关键问题
 

@@ -166,254 +166,270 @@
         </Border>
 
         <Grid Margin="24,8,24,8">
-            <ScrollViewer VerticalScrollBarVisibility="Auto">
-                <ItemsControl ItemsSource="{Binding FilteredEntries}">
-                    <ItemsControl.GroupStyle>
-                        <GroupStyle>
-                            <GroupStyle.ContainerStyle>
-                                <Style TargetType="{x:Type GroupItem}">
-                                    <Setter Property="Template">
-                                        <Setter.Value>
-                                            <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <Expander IsExpanded="True"
-                                                          Style="{StaticResource MaterialDesignExpander}"
-                                                          BorderBrush="{StaticResource PortLensItemBorderBrush}"
-                                                          BorderThickness="0,0,0,1"
-                                                          Padding="0"
-                                                          Margin="0,0,0,2">
-                                                    <Expander.Header>
-                                                        <Grid Margin="4,10,6,10">
-                                                            <Grid.ColumnDefinitions>
-                                                                <ColumnDefinition Width="*" />
-                                                                <ColumnDefinition Width="Auto" />
-                                                            </Grid.ColumnDefinitions>
-                                                            <StackPanel Grid.Column="0">
-                                                                <TextBlock Text="{Binding Items[0].ProjectGroupTitle}"
-                                                                           FontSize="18"
-                                                                           FontWeight="SemiBold"
-                                                                           Foreground="{StaticResource PortLensGroupTitleBrush}"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                                <TextBlock Text="{Binding Items[0].ProjectGroupSubtitle}"
-                                                                           Foreground="{StaticResource PortLensSubtitleBrush}"
-                                                                           FontSize="12"
-                                                                           Margin="0,3,20,0"
-                                                                           TextTrimming="CharacterEllipsis" />
-                                                            </StackPanel>
-                                                            <StackPanel Grid.Column="1"
-                                                                        Orientation="Horizontal"
-                                                                        VerticalAlignment="Center">
-                                                                <materialDesign:PackIcon Kind="LanConnect"
-                                                                                         Width="15"
-                                                                                         Height="15"
-                                                                                         Foreground="{StaticResource PortLensSubtitleBrush}"
-                                                                                         Margin="0,0,5,0" />
-                                                                <TextBlock Text="{Binding ItemCount, StringFormat={}{0} ports}"
-                                                                           Foreground="{StaticResource PortLensTextBrush}"
-                                                                           FontSize="13" />
-                                                            </StackPanel>
-                                                        </Grid>
-                                                    </Expander.Header>
-                                                    <ItemsPresenter />
-                                                </Expander>
-                                            </ControlTemplate>
-                                        </Setter.Value>
-                                    </Setter>
-                                </Style>
-                            </GroupStyle.ContainerStyle>
-                        </GroupStyle>
-                    </ItemsControl.GroupStyle>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Background="Transparent" BorderBrush="{StaticResource PortLensItemBorderBrush}" BorderThickness="0,0,0,1" Padding="0" Margin="0">
-                                <Border.ContextMenu>
-                                    <ContextMenu>
-                                        <MenuItem Header="Open URL"
-                                                  Click="OpenUrlMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="OpenInNew" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Copy URL"
-                                                  Click="CopyUrlMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Copy command line"
-                                                  Click="CopyCommandLineMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="ConsoleLine" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <Separator />
-                                        <MenuItem Header="Open process directory"
-                                                  Click="OpenProcessDirectoryMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="ApplicationCogOutline" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Open project directory"
-                                                  Click="OpenProjectDirectoryMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Open in terminal"
-                                                  Click="OpenTerminalMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="Console" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <Separator />
-                                        <MenuItem Header="Add port to blacklist"
-                                                  Click="BlacklistPortMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="EyeOffOutline" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                        <MenuItem Header="Kill process tree"
-                                                  Foreground="{StaticResource PortLensDangerBrush}"
-                                                  Click="KillProcessTreeMenuItem_Click"
-                                                  Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                                            <MenuItem.Icon>
-                                                <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" />
-                                            </MenuItem.Icon>
-                                        </MenuItem>
-                                    </ContextMenu>
-                                </Border.ContextMenu>
-                                <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                          Style="{StaticResource MaterialDesignExpander}"
-                                          Padding="0">
-                                    <Expander.Header>
-                                        <Grid Margin="4,8,6,8">
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="92" />
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
+            <ItemsControl ItemsSource="{Binding FilteredEntries}"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                          ScrollViewer.CanContentScroll="True">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel ScrollUnit="Pixel" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.Template>
+                    <ControlTemplate TargetType="ItemsControl">
+                        <Border>
+                            <ScrollViewer CanContentScroll="True"
+                                          VerticalScrollBarVisibility="Auto">
+                                <ItemsPresenter />
+                            </ScrollViewer>
+                        </Border>
+                    </ControlTemplate>
+                </ItemsControl.Template>
+                <ItemsControl.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="{x:Type GroupItem}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type GroupItem}">
+                                            <Expander IsExpanded="True"
+                                                      Style="{StaticResource MaterialDesignExpander}"
+                                                      BorderBrush="{StaticResource PortLensItemBorderBrush}"
+                                                      BorderThickness="0,0,0,1"
+                                                      Padding="0"
+                                                      Margin="0,0,0,2">
+                                                <Expander.Header>
+                                                    <Grid Margin="4,10,6,10">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <StackPanel Grid.Column="0">
+                                                            <TextBlock Text="{Binding Items[0].ProjectGroupTitle}"
+                                                                       FontSize="18"
+                                                                       FontWeight="SemiBold"
+                                                                       Foreground="{StaticResource PortLensGroupTitleBrush}"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding Items[0].ProjectGroupSubtitle}"
+                                                                       Foreground="{StaticResource PortLensSubtitleBrush}"
+                                                                       FontSize="12"
+                                                                       Margin="0,3,20,0"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                        <StackPanel Grid.Column="1"
+                                                                    Orientation="Horizontal"
+                                                                    VerticalAlignment="Center">
+                                                            <materialDesign:PackIcon Kind="LanConnect"
+                                                                                     Width="15"
+                                                                                     Height="15"
+                                                                                     Foreground="{StaticResource PortLensSubtitleBrush}"
+                                                                                     Margin="0,0,5,0" />
+                                                            <TextBlock Text="{Binding ItemCount, StringFormat={}{0} ports}"
+                                                                       Foreground="{StaticResource PortLensTextBrush}"
+                                                                       FontSize="13" />
+                                                        </StackPanel>
+                                                    </Grid>
+                                                </Expander.Header>
+                                                <ItemsPresenter />
+                                            </Expander>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </ItemsControl.GroupStyle>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="Transparent" BorderBrush="{StaticResource PortLensItemBorderBrush}" BorderThickness="0,0,0,1" Padding="0" Margin="0">
+                            <Border.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem Header="Open URL"
+                                              Click="OpenUrlMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="OpenInNew" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Copy URL"
+                                              Click="CopyUrlMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Copy command line"
+                                              Click="CopyCommandLineMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="ConsoleLine" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="Open process directory"
+                                              Click="OpenProcessDirectoryMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="ApplicationCogOutline" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Open project directory"
+                                              Click="OpenProjectDirectoryMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Open in terminal"
+                                              Click="OpenTerminalMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="Console" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="Add port to blacklist"
+                                              Click="BlacklistPortMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="EyeOffOutline" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                    <MenuItem Header="Kill process tree"
+                                              Foreground="{StaticResource PortLensDangerBrush}"
+                                              Click="KillProcessTreeMenuItem_Click"
+                                              Tag="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                        <MenuItem.Icon>
+                                            <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Border.ContextMenu>
+                            <Expander IsExpanded="{Binding IsExpanded, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Style="{StaticResource MaterialDesignExpander}"
+                                      Padding="0">
+                                <Expander.Header>
+                                    <Grid Margin="4,8,6,8">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="92" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                                            <TextBlock Grid.Column="0"
-                                                       Text="{Binding PortText}"
-                                                       FontFamily="Consolas"
-                                                       FontSize="20"
-                                                       FontWeight="Bold"
-                                                       Foreground="{StaticResource PortLensPortBrush}"
-                                                       VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="0"
+                                                   Text="{Binding PortText}"
+                                                   FontFamily="Consolas"
+                                                   FontSize="20"
+                                                   FontWeight="Bold"
+                                                   Foreground="{StaticResource PortLensPortBrush}"
+                                                   VerticalAlignment="Center" />
 
-                                            <StackPanel Grid.Column="1" Margin="2,0,18,0">
-                                                <TextBlock Text="{Binding DisplayName}"
-                                                           FontSize="17"
-                                                           FontWeight="SemiBold"
-                                                           Foreground="{StaticResource PortLensGroupTitleBrush}"
-                                                           TextTrimming="CharacterEllipsis" />
-                                                <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                                        <materialDesign:PackIcon Kind="ApplicationBracesOutline" Style="{StaticResource MetaIcon}" />
-                                                        <TextBlock Text="{Binding FrameworkText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                                        <materialDesign:PackIcon Kind="ClockOutline" Style="{StaticResource MetaIcon}" />
-                                                        <TextBlock Text="{Binding UptimeText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
-                                                        <materialDesign:PackIcon Kind="Cpu64Bit" Style="{StaticResource MetaIcon}" />
-                                                        <TextBlock Text="{Binding CpuText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
-                                                    </StackPanel>
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="Memory" Style="{StaticResource MetaIcon}" />
-                                                        <TextBlock Text="{Binding MemoryText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
-                                                    </StackPanel>
+                                        <StackPanel Grid.Column="1" Margin="2,0,18,0">
+                                            <TextBlock Text="{Binding DisplayName}"
+                                                       FontSize="17"
+                                                       FontWeight="SemiBold"
+                                                       Foreground="{StaticResource PortLensGroupTitleBrush}"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,3,0,0">
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                                    <materialDesign:PackIcon Kind="ApplicationBracesOutline" Style="{StaticResource MetaIcon}" />
+                                                    <TextBlock Text="{Binding FrameworkText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                                    <materialDesign:PackIcon Kind="ClockOutline" Style="{StaticResource MetaIcon}" />
+                                                    <TextBlock Text="{Binding UptimeText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,12,0">
+                                                    <materialDesign:PackIcon Kind="Cpu64Bit" Style="{StaticResource MetaIcon}" />
+                                                    <TextBlock Text="{Binding CpuText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="Memory" Style="{StaticResource MetaIcon}" />
+                                                    <TextBlock Text="{Binding MemoryText}" Foreground="{StaticResource PortLensMetaTextBrush}" />
                                                 </StackPanel>
                                             </StackPanel>
+                                        </StackPanel>
 
-                                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
-                                                <Button Style="{StaticResource PortActionButton}" Click="OpenButton_Click" Tag="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="OpenInNew" Width="16" Height="16" Margin="0,0,6,0" />
-                                                        <TextBlock Text="Open" />
-                                                    </StackPanel>
-                                                </Button>
-                                                <Button Style="{StaticResource PortActionButton}" Click="CopyButton_Click" Tag="{Binding}">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Margin="0,0,6,0" />
-                                                        <TextBlock Text="Copy" />
-                                                    </StackPanel>
-                                                </Button>
-                                            </StackPanel>
-                                        </Grid>
-                                    </Expander.Header>
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                            <Button Style="{StaticResource PortActionButton}" Click="OpenButton_Click" Tag="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="OpenInNew" Width="16" Height="16" Margin="0,0,6,0" />
+                                                    <TextBlock Text="Open" />
+                                                </StackPanel>
+                                            </Button>
+                                            <Button Style="{StaticResource PortActionButton}" Click="CopyButton_Click" Tag="{Binding}">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <materialDesign:PackIcon Kind="ContentCopy" Width="16" Height="16" Margin="0,0,6,0" />
+                                                    <TextBlock Text="Copy" />
+                                                </StackPanel>
+                                            </Button>
+                                        </StackPanel>
+                                    </Grid>
+                                </Expander.Header>
 
-                                    <Grid Margin="36,0,6,14">
+                                <Grid Margin="36,0,6,14">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="86" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="50" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,18,0">
                                         <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="86" />
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="50" />
                                         </Grid.ColumnDefinitions>
 
-                                        <Grid Grid.Row="0" Grid.ColumnSpan="2" Margin="0,0,18,0">
-                                            <Grid.RowDefinitions>
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                                <RowDefinition Height="Auto" />
-                                            </Grid.RowDefinitions>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="86" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="PID" Foreground="{StaticResource PortLensDetailLabelBrush}" />
+                                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProcessId}" Foreground="{StaticResource PortLensDetailValueBrush}" />
 
-                                            <TextBlock Grid.Row="0" Grid.Column="0" Text="PID" Foreground="{StaticResource PortLensDetailLabelBrush}" />
-                                            <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding ProcessId}" Foreground="{StaticResource PortLensDetailValueBrush}" />
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Address" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AddressText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" />
 
-                                            <TextBlock Grid.Row="1" Grid.Column="0" Text="Address" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
-                                            <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding AddressText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" />
+                                        <TextBlock Grid.Row="2" Grid.Column="0" Text="Command" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
+                                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CommandText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" TextWrapping="Wrap" />
 
-                                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Command" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
-                                            <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding CommandText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" TextWrapping="Wrap" />
-
-                                            <TextBlock Grid.Row="3" Grid.Column="0" Text="Directory" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
-                                            <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DirectoryText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" TextWrapping="Wrap" />
-                                        </Grid>
-
-                                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
-                                            <Button Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,8,0" Click="OpenDirectoryButton_Click" Tag="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" Margin="0,0,6,0" />
-                                                    <TextBlock Text="Directory" />
-                                                </StackPanel>
-                                            </Button>
-                                            <Button Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,8,0" Click="CopyPidButton_Click" Tag="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="Identifier" Width="16" Height="16" Margin="0,0,6,0" />
-                                                    <TextBlock Text="PID" />
-                                                </StackPanel>
-                                            </Button>
-                                            <Button Style="{StaticResource MaterialDesignOutlinedButton}" Foreground="{StaticResource PortLensDangerBrush}" Click="KillButton_Click" Tag="{Binding}">
-                                                <StackPanel Orientation="Horizontal">
-                                                    <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" Margin="0,0,6,0" />
-                                                    <TextBlock Text="Kill" />
-                                                </StackPanel>
-                                            </Button>
-                                        </StackPanel>
-                                        <Grid Grid.Row="1" Grid.Column="2" Width="50" IsHitTestVisible="False" Opacity="0" />
+                                        <TextBlock Grid.Row="3" Grid.Column="0" Text="Directory" Foreground="{StaticResource PortLensDetailLabelBrush}" Margin="0,7,0,0" />
+                                        <TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding DirectoryText}" Foreground="{StaticResource PortLensDetailValueBrush}" Margin="0,7,0,0" TextWrapping="Wrap" />
                                     </Grid>
-                                </Expander>
-                            </Border>
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </ScrollViewer>
+
+                                    <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+                                        <Button Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,8,0" Click="OpenDirectoryButton_Click" Tag="{Binding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="FolderOpenOutline" Width="16" Height="16" Margin="0,0,6,0" />
+                                                <TextBlock Text="Directory" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource MaterialDesignOutlinedButton}" Margin="0,0,8,0" Click="CopyPidButton_Click" Tag="{Binding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="Identifier" Width="16" Height="16" Margin="0,0,6,0" />
+                                                <TextBlock Text="PID" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button Style="{StaticResource MaterialDesignOutlinedButton}" Foreground="{StaticResource PortLensDangerBrush}" Click="KillButton_Click" Tag="{Binding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <materialDesign:PackIcon Kind="StopCircleOutline" Width="16" Height="16" Margin="0,0,6,0" />
+                                                <TextBlock Text="Kill" />
+                                            </StackPanel>
+                                        </Button>
+                                    </StackPanel>
+                                    <Grid Grid.Row="1" Grid.Column="2" Width="50" IsHitTestVisible="False" Opacity="0" />
+                                </Grid>
+                            </Expander>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
 
             <StackPanel HorizontalAlignment="Center"
                         VerticalAlignment="Center"
