@@ -142,7 +142,16 @@
 - [x] 构建/测试/发布/smoke test/提交
 - **状态：** complete
 
-## 关键问题
+#### D5：同一项目下 frontend/backend 聚合分组
+- [x] 优化 `ProjectRootResolver`，将 frontend/backend 等子项目聚合到共同父目录
+- [x] 新增 `ComputeRelativeSubtitle`，组内显示子项目相对路径
+- [x] 更新 `PortEntryViewModel` 副标题计算
+- [x] 添加 `ProjectRootResolverTests` 覆盖聚合与 workspace 语义
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
+
+## 当前阶段
+阶段 D5 已完成
 
 1. 是否保留当前的 WPF 代码隐藏风格，还是全面迁移到 MVVM？
 2. 是否引入第三方 DI 容器，还是使用轻量级的 `Microsoft.Extensions.DependencyInjection`？

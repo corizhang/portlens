@@ -292,6 +292,26 @@
   - `work/PortLens.Desktop/Collections/SuppressibleObservableCollection.cs`
   - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
 
+### 阶段 D5：同一项目下 frontend/backend 聚合分组
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 优化 `ProjectRootResolver.Resolve`：当子项目目录（frontend/backend/api/server/web 等）自身带有 root marker，且父目录也具有 root marker 时，将项目根提升到父目录
+  - 保留 workspace container（apps/packages/services）语义：`apps/web` 仍分组在 `web`
+  - 新增 `ProjectRootResolver.ComputeRelativeSubtitle`，在组标题显示共享父目录名的同时，副标题显示子项目相对路径（如 `frontend` / `backend`）
+  - 更新 `PortEntryViewModel.RecalculateDerivedValues` 使用新的副标题计算
+  - 新增 `ProjectRootResolverTests` 覆盖聚合行为、workspace 语义、相对副标题
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（55 个测试通过）
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 使用 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Core/Services/ProjectRootResolver.cs`
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+  - `work/PortLens.Core.Tests/ProjectRootResolverTests.cs`
+
 ## 最终交付说明
 
 本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 9 以及阶段 D1-D4：
@@ -309,10 +329,11 @@
 11. **阶段 D2**：`PortEntryKey` struct，消除字符串 key 分配。
 12. **阶段 D4**：进程快照字典，减少重复进程打开。
 13. **阶段 D3**：`ApplyEntries` 批量 diff，减少 `CollectionChanged` 事件。
+14. **阶段 D5**：frontend/backend 等子项目聚合到共同父目录分组。
 
 最终状态：
 - `dotnet build PortLens.sln` 成功
-- `dotnet test PortLens.sln` 50 个测试通过
+- `dotnet test PortLens.sln` 55 个测试通过
 - `outputs/PortLensMaterial/PortLens.exe` 可正常启动
 - 所有规划文件已同步
 
@@ -321,7 +342,7 @@
 | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
 |------|------|---------|---------|------|
 | 发布 exe 启动 | 双击 `outputs/PortLensMaterial/PortLens.exe` | 应用窗口正常显示 | 应用窗口正常显示 | 通过 |
-| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 50 个测试通过，0 失败 | 通过 |
+| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 55 个测试通过，0 失败 | 通过 |
 
 ## 错误日志
 

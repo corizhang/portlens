@@ -456,6 +456,39 @@ DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `Initial
 - 风险：`_entriesByKey` 与新集合不一致；通过 diff 后统一赋值保证一致性。
 - 回滚：还原 `MainWindowViewModel.cs`，移除 `SuppressibleObservableCollection`。
 
+## 阶段 D5：同一项目下 frontend/backend 聚合分组
+
+### 问题
+用户截图显示：同一仓库 `feature-mvp` 下的 `frontend`（Vite）和 `backend`（Go）被识别为两个独立项目，而不是聚合在 `feature-mvp` 下。
+
+### 根因
+`ProjectRootResolver` 在子目录（如 `frontend`）发现 `.vscode` 等 root marker 时直接停在该子目录，没有考虑它与 `backend` 共享同一个父项目根。
+
+### 解决方案
+改进 `ProjectRootResolver.Resolve`：
+
+- 当 marker root 的目录名属于 `frontend/backend/api/server/web` 等子项目名，且其父目录不是 `apps/packages/services` 等 workspace container 时，如果父目录也有 root marker，则提升到父目录作为项目根。
+- 这样 `feature-mvp/frontend` 和 `feature-mvp/backend` 都会聚合到 `feature-mvp`。
+- 保留 workspace container 语义：`apps/web` 仍识别为 `web`，不会越级到 workspace 根。
+
+同时新增 `ComputeRelativeSubtitle`：
+
+- 组标题显示共享父目录名（如 `feature-mvp`）。
+- 副标题显示子项目相对于父目录的路径（如 `frontend` / `backend`），便于在同一组内区分。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 55 个测试通过（新增 5 个）。
+- `scripts/publish.ps1` 发布成功。
+- Smoke test 确认主窗口正常显示。
+
+### 风险与回滚
+
+- 风险：过度聚合，把本不该合并的项目合并在一起；目前仅对显式子项目名（frontend/backend 等）触发，且要求父目录也有 root marker。
+- 风险：用户希望以子项目为单位查看；副标题保留了子项目路径，仍可区分。
+- 回滚：还原 `ProjectRootResolver.cs` 和 `PortEntryViewModel.cs` 的 subtitle 计算。
+
 ---
 
 *每执行2次查看/浏览器/搜索操作后更新此文件*
