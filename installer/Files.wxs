@@ -1,46 +1,103 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
     <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
-      <Component Id="PortLensExe" Guid="a1b2c3d4-1111-2222-3333-444444444444">
-        <File Id="PortLens.exe" Source="$(var.PublishDir)PortLens.exe" KeyPath="yes" />
-      </Component>
-      <Component Id="PortLensDll" Guid="a1b2c3d4-1111-2222-3333-444444444445">
-        <File Id="PortLens.dll" Source="$(var.PublishDir)PortLens.dll" KeyPath="yes" />
-      </Component>
-      <Component Id="PortLensCoreDll" Guid="a1b2c3d4-1111-2222-3333-444444444446">
-        <File Id="PortLens.Core.dll" Source="$(var.PublishDir)PortLens.Core.dll" KeyPath="yes" />
-      </Component>
-      <Component Id="MaterialDesignThemesDll" Guid="a1b2c3d4-1111-2222-3333-444444444447">
-        <File Id="MaterialDesignThemes.dll" Source="$(var.PublishDir)MaterialDesignThemes.dll" KeyPath="yes" />
-      </Component>
-      <Component Id="MaterialDesignColorsDll" Guid="a1b2c3d4-1111-2222-3333-444444444448">
+      <Component Id="FileComponent_0" Guid="a34bd86d-30d8-41bb-b8ae-366b32009ee9">
         <File Id="MaterialDesignColors.dll" Source="$(var.PublishDir)MaterialDesignColors.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsDependencyInjectionDll" Guid="a1b2c3d4-1111-2222-3333-444444444449">
-        <File Id="Microsoft.Extensions.DependencyInjection.dll" Source="$(var.PublishDir)Microsoft.Extensions.DependencyInjection.dll" KeyPath="yes" />
+      <Component Id="FileComponent_1" Guid="8cf0a769-812f-4ab5-8e1b-2d7409ef4e24">
+        <File Id="MaterialDesignThemes.Wpf.dll" Source="$(var.PublishDir)MaterialDesignThemes.Wpf.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsDependencyInjectionAbstractionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444a">
+      <Component Id="FileComponent_2" Guid="adf140d1-e064-48b8-ab2b-096aa762f971">
+        <File Id="Microsoft.Extensions.Configuration.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.Configuration.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_3" Guid="115e7874-ca3c-4667-9023-33a8cce889e5">
+        <File Id="Microsoft.Extensions.Configuration.Binder.dll" Source="$(var.PublishDir)Microsoft.Extensions.Configuration.Binder.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_4" Guid="385c5393-ec28-4a62-b4c9-698cdc31055d">
+        <File Id="Microsoft.Extensions.Configuration.dll" Source="$(var.PublishDir)Microsoft.Extensions.Configuration.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_5" Guid="3220b071-0b7a-4d59-8ed3-a1cd098178cd">
         <File Id="Microsoft.Extensions.DependencyInjection.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.DependencyInjection.Abstractions.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsLoggingDll" Guid="a1b2c3d4-1111-2222-3333-44444444444b">
-        <File Id="Microsoft.Extensions.Logging.dll" Source="$(var.PublishDir)Microsoft.Extensions.Logging.dll" KeyPath="yes" />
+      <Component Id="FileComponent_6" Guid="c77b075b-8553-4396-8419-3186a1cdc74b">
+        <File Id="Microsoft.Extensions.DependencyInjection.dll" Source="$(var.PublishDir)Microsoft.Extensions.DependencyInjection.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsLoggingAbstractionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444c">
+      <Component Id="FileComponent_7" Guid="cdfa3b9d-df32-46ae-ab40-43f574b18d10">
+        <File Id="Microsoft.Extensions.Diagnostics.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.Diagnostics.Abstractions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_8" Guid="8fef0468-f867-4944-8dcd-c817d43a7d81">
+        <File Id="Microsoft.Extensions.Diagnostics.dll" Source="$(var.PublishDir)Microsoft.Extensions.Diagnostics.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_9" Guid="5ba92605-d533-4c2b-bc88-264962e8e687">
+        <File Id="Microsoft.Extensions.Http.dll" Source="$(var.PublishDir)Microsoft.Extensions.Http.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_10" Guid="a4eb37ef-8441-416a-8c01-d1c1b8a9228b">
         <File Id="Microsoft.Extensions.Logging.Abstractions.dll" Source="$(var.PublishDir)Microsoft.Extensions.Logging.Abstractions.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsOptionsDll" Guid="a1b2c3d4-1111-2222-3333-44444444444d">
+      <Component Id="FileComponent_11" Guid="c4cc397f-1f07-4b20-ae11-a95fd9d8fe95">
+        <File Id="Microsoft.Extensions.Logging.dll" Source="$(var.PublishDir)Microsoft.Extensions.Logging.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_12" Guid="7733221c-8703-4e8c-9b62-26714c3bb407">
+        <File Id="Microsoft.Extensions.Options.ConfigurationExtensions.dll" Source="$(var.PublishDir)Microsoft.Extensions.Options.ConfigurationExtensions.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_13" Guid="6af2de95-ae83-4897-b07e-c855389415a1">
         <File Id="Microsoft.Extensions.Options.dll" Source="$(var.PublishDir)Microsoft.Extensions.Options.dll" KeyPath="yes" />
       </Component>
-      <Component Id="MicrosoftExtensionsPrimitivesDll" Guid="a1b2c3d4-1111-2222-3333-44444444444e">
+      <Component Id="FileComponent_14" Guid="a5739963-a568-42bf-bfaa-88151783e749">
         <File Id="Microsoft.Extensions.Primitives.dll" Source="$(var.PublishDir)Microsoft.Extensions.Primitives.dll" KeyPath="yes" />
       </Component>
-      <Component Id="SystemDiagnosticsDiagnosticSourceDll" Guid="a1b2c3d4-1111-2222-3333-44444444444f">
-        <File Id="System.Diagnostics.DiagnosticSource.dll" Source="$(var.PublishDir)System.Diagnostics.DiagnosticSource.dll" KeyPath="yes" />
+      <Component Id="FileComponent_15" Guid="8402cee3-72b9-48dc-914e-cad4915cfc30">
+        <File Id="Microsoft.Xaml.Behaviors.dll" Source="$(var.PublishDir)Microsoft.Xaml.Behaviors.dll" KeyPath="yes" />
       </Component>
-      <Component Id="AppIcon" Guid="a1b2c3d4-1111-2222-3333-444444444450">
-        <File Id="portlens_icon.ico" Source="$(var.PublishDir)portlens-icon.ico" KeyPath="yes" />
+      <Component Id="FileComponent_16" Guid="3ff1f738-0405-426d-a88f-d0f66ef1e403">
+        <File Id="PortLens.Core.dll" Source="$(var.PublishDir)PortLens.Core.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_17" Guid="125776e3-71d5-4f3b-9eb8-6bd4a3fa279f">
+        <File Id="PortLens.deps.json" Source="$(var.PublishDir)PortLens.deps.json" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_18" Guid="e8a39978-b460-42ca-b13e-64b6dd666b18">
+        <File Id="PortLens.dll" Source="$(var.PublishDir)PortLens.dll" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_19" Guid="08b38878-e532-4ea5-ad64-5f3e8c81284c">
+        <File Id="PortLens.exe" Source="$(var.PublishDir)PortLens.exe" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_20" Guid="2cf6bbc1-abfa-467c-a79a-39c4263e3832">
+        <File Id="PortLens.runtimeconfig.json" Source="$(var.PublishDir)PortLens.runtimeconfig.json" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_21" Guid="4251ed8b-a2a4-46af-86f0-6374b8ce64fc">
+        <File Id="README.md" Source="$(var.PublishDir)README.md" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_22" Guid="fa3993ec-9ede-4543-ac63-eea0574210f3">
+        <File Id="Run_PortLens.cmd" Source="$(var.PublishDir)Run-PortLens.cmd" KeyPath="yes" />
+      </Component>
+      <Component Id="FileComponent_23" Guid="57f0ffce-868d-4229-bc87-c42076e770a5">
+        <File Id="zh_Hans_PortLens.resources.dll" Source="$(var.PublishDir)zh-Hans\PortLens.resources.dll" KeyPath="yes" />
       </Component>
     </ComponentGroup>
+      <ComponentRef Id="FileComponent_0" />
+      <ComponentRef Id="FileComponent_1" />
+      <ComponentRef Id="FileComponent_2" />
+      <ComponentRef Id="FileComponent_3" />
+      <ComponentRef Id="FileComponent_4" />
+      <ComponentRef Id="FileComponent_5" />
+      <ComponentRef Id="FileComponent_6" />
+      <ComponentRef Id="FileComponent_7" />
+      <ComponentRef Id="FileComponent_8" />
+      <ComponentRef Id="FileComponent_9" />
+      <ComponentRef Id="FileComponent_10" />
+      <ComponentRef Id="FileComponent_11" />
+      <ComponentRef Id="FileComponent_12" />
+      <ComponentRef Id="FileComponent_13" />
+      <ComponentRef Id="FileComponent_14" />
+      <ComponentRef Id="FileComponent_15" />
+      <ComponentRef Id="FileComponent_16" />
+      <ComponentRef Id="FileComponent_17" />
+      <ComponentRef Id="FileComponent_18" />
+      <ComponentRef Id="FileComponent_19" />
+      <ComponentRef Id="FileComponent_20" />
+      <ComponentRef Id="FileComponent_21" />
+      <ComponentRef Id="FileComponent_22" />
+      <ComponentRef Id="FileComponent_23" />
   </Fragment>
 </Wix>
