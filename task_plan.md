@@ -83,38 +83,63 @@
 - **状态：** complete
 
 ### 阶段 8：性能优化 - UI 虚拟化与列表渲染
-- [ ] 将主列表从 `ItemsControl + ScrollViewer` 替换为支持虚拟化的容器
+- [x] 将主列表从 `ItemsControl + ScrollViewer` 替换为支持虚拟化的容器
   - 保持现有视觉样式和交互（ContextMenu、Expander、按钮等）
   - 启用 `VirtualizingStackPanel` 并设置 `ScrollViewer.CanContentScroll="True"`
   - 验证分组（`GroupStyle`）与虚拟化兼容
-- [ ] 验证大量条目（模拟 100+/500+ 端口）时滚动和刷新仍流畅
-- [ ] 更新 `progress.md` 和 `findings.md`
-- **状态：** pending
+- [x] 验证大量条目（模拟 100+/500+ 端口）时滚动和刷新仍流畅
+- [x] 更新 `progress.md` 和 `findings.md`
+- **状态：** complete
 
 ### 阶段 9：性能优化 - 搜索与分组预计算
-- [ ] 在 `PortEntryViewModel.Update()` 中预计算搜索 haystack 并缓存
-- [ ] 在 `PortEntryViewModel.Update()` 中预计算并缓存 `ProjectRootDirectory`、`ProjectGroupKey`、`ProjectGroupTitle`、`ProjectGroupSubtitle`
-- [ ] 调整 `MainWindowViewModel.MatchesText` 使用预计算缓存
-- [ ] 验证分组显示和搜索过滤结果与优化前一致
-- [ ] 添加/更新相关单元测试（如预计算缓存行为）
-- [ ] 更新 `progress.md` 和 `findings.md`
-- **状态：** pending
+- [x] 在 `PortEntryViewModel.Update()` 中预计算搜索 haystack 并缓存
+- [x] 在 `PortEntryViewModel.Update()` 中预计算并缓存 `ProjectRootDirectory`、`ProjectGroupKey`、`ProjectGroupTitle`、`ProjectGroupSubtitle`
+- [x] 调整 `MainWindowViewModel.MatchesText` 使用预计算缓存
+- [x] 验证分组显示和搜索过滤结果与优化前一致
+- [x] 添加/更新相关单元测试（如预计算缓存行为）
+- [x] 更新 `progress.md` 和 `findings.md`
+- **状态：** complete
 
 ### 阶段 10：性能优化 - 跨扫描缓存 PowerShell/CIM 结果
-- [ ] 在 `ProcessCommandLineReader` 中引入按 PID 的跨扫描缓存（带 TTL，如 60s）
+- [x] 在 `ProcessCommandLineReader` 中引入按 PID 的跨扫描缓存（带 TTL，如 60s）
   - 仅当 PID 在目标集合中且缓存未命中/过期时才启动 PowerShell
   - 扫描结束时按 live PIDs prune
-- [ ] 将 `ProcessTreeReader.CountDescendants` 改为依赖同一进程快照，避免单独 PowerShell 调用
+- [x] 将 `ProcessTreeReader.CountDescendants` 改为依赖同一进程快照，避免单独 PowerShell 调用
   - 先评估是否可与命令行读取合并；若不能，至少共享缓存
-- [ ] 验证刷新间隔缩短时 CPU 占用明显下降
-- [ ] 更新 `progress.md` 和 `findings.md`
+- [x] 验证刷新间隔缩短时 CPU 占用明显下降
+- [x] 更新 `progress.md` 和 `findings.md`
+- **状态：** complete
+
+### 阶段 11：进阶性能优化（阶段 D）
+
+#### D1：原生 API 读取进程命令行
+- [x] 用 `NtQueryInformationProcess` 原生读取命令行，替换 PowerShell/CIM
+- [x] 实现 `ProcessCommandLineInformation`（info class 60）主路径
+- [x] 实现 PEB + `RTL_USER_PROCESS_PARAMETERS.CommandLine` 备用路径
+- [x] 保留缓存、Prune、CancellationToken 和空白归一化
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
+
+#### D2：`PortEntry.Key` 使用 struct
+- [ ] 新增 `PortEntryKey` readonly record struct
+- [ ] 更新 `PortEntry.Key`、`PortEntryViewModel.Key`、`_entriesByKey`、`_matchingKeys` 使用 struct
+- [ ] 添加 `PortEntryKeyTests` 单元测试
+- [ ] 构建/测试/发布/smoke test/提交
+- **状态：** in_progress
+
+#### D3：`ApplyEntries` 批量 diff
+- [ ] 创建 `SuppressibleObservableCollection<T>`
+- [ ] 在 `ApplyEntries` 中批量 diff 并发出单个 `Reset` 事件
+- [ ] 验证滚动位置与展开状态保留
+- [ ] 构建/测试/发布/smoke test/提交
 - **状态：** pending
 
-### 阶段 11：进阶性能优化（可选，视前阶段收益决定）
-- [ ] 评估用 `NtQuerySystemInformation` 原生读取进程命令线，替换 PowerShell/CIM
-- [ ] 评估 `PortEntry.Key` 使用 struct 替代字符串，减少字典 key 分配
-- [ ] 评估 `ApplyEntries` 使用批量 diff 算法，减少 `CollectionChanged` 事件
-- [ ] 评估 `ProcessInspector.EnrichBasic` 使用进程快照字典，减少 `Process.GetProcessById` 异常开销
+#### D4：进程快照字典
+- [ ] 新增 `ProcessSnapshot` struct
+- [ ] `ProcessInspector.CaptureSnapshot` 一次读取所有进程信息
+- [ ] `CpuSampler` 和 `EnrichBasic`/`EnrichDetails` 使用快照字典
+- [ ] `PortScanner.Scan` 调用一次快照并传入 enrich
+- [ ] 构建/测试/发布/smoke test/提交
 - **状态：** pending
 
 ## 关键问题
@@ -132,6 +157,7 @@
 | 优先拆分 `ProcessInspector` 和 `MainWindow.xaml.cs` | 这两个文件是当前最大的可维护性瓶颈 |
 | 使用 `Microsoft.Extensions.DependencyInjection` | 与 .NET 生态一致，学习成本低，不需要额外包 |
 | 先做纯单元测试，再做 CI/CD | 单元测试不依赖管理员权限，执行稳定，可作为 CI 基础 |
+| 用 `NtQueryInformationProcess` 替代 PowerShell 读取命令行 | 消除外部子进程开销，降低刷新间隔下的 CPU/IO 占用 |
 
 ## 遇到的错误
 

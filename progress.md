@@ -212,6 +212,24 @@
   - `work/PortLens.Core/Services/ProcessInspector.cs`
   - `work/PortLens.Desktop/ServiceRegistration.cs`
 
+### 阶段 D1：原生命令行读取
+- **状态：** complete
+- **开始时间：** 2026-07-04
+- **完成时间：** 2026-07-04
+- 执行的操作：
+  - 将 `ProcessCommandLineReader` 从 PowerShell/CIM 改为原生 API 读取
+  - 主路径使用 `NtQueryInformationProcess` 的 `ProcessCommandLineInformation`（info class 60）
+  - 备用路径通过 PEB + `RTL_USER_PROCESS_PARAMETERS.CommandLine`（偏移 0x70）读取
+  - 保留 TTL 缓存、Prune、CancellationToken 语义和空白归一化
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（45 个测试通过）
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 使用 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示，且未启动 `powershell.exe` 子进程
+  - 提交 Git
+- 创建/修改的文件：
+  - `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+  - `scripts/smoke-test.ps1`
+
 ## 最终交付说明
 
 本次会话完成了 PortLens 项目的系统性优化，涵盖阶段 1 至阶段 9：

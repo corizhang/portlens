@@ -351,6 +351,32 @@ DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `Initial
 3. **`ApplyEntries` 批量 diff**：减少 `ObservableCollection` 逐个 `Remove`/`Move`/`Insert` 触发的 `CollectionChanged` 事件。
 4. **进程快照字典**：在 `ProcessInspector.EnrichBasic` 中用一次 `Process.GetProcesses()` 快照替代多次 `Process.GetProcessById` 异常处理。
 
+## 阶段 D1：原生命令行读取
+
+### 问题
+每次刷新都启动 PowerShell/CIM 读取进程命令行，子进程开销高；阶段 C 的缓存已减少部分开销，但仍依赖外部进程。
+
+### 解决方案
+将 `ProcessCommandLineReader` 改为原生 API 读取：
+
+- **主路径**：使用 `NtQueryInformationProcess` 的 `ProcessCommandLineInformation`（info class 60）获取 `UNICODE_STRING`，再用 `ReadProcessMemory` 读取命令行字符串。
+- **备用路径**：若主路径失败，使用 `ProcessBasicInformation` 获取 PEB，从 `RTL_USER_PROCESS_PARAMETERS.CommandLine`（x64 偏移 0x70）读取。
+- 打开进程时使用 `PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ`。
+- 保留 60 秒 TTL 缓存、按 live PID 的 Prune、CancellationToken 传播以及空白归一化。
+
+### 验证
+
+- `dotnet build PortLens.sln` 成功，0 警告，0 错误。
+- `dotnet test PortLens.sln` 45 个测试通过。
+- `scripts/publish.ps1` 发布成功。
+- Smoke test 确认发布后的 `PortLens.exe` 主窗口正常显示，且未启动 `powershell.exe` 子进程。
+
+### 风险与回滚
+
+- 风险：受保护/系统进程无法打开或读取时返回 `null`，与之前行为一致。
+- 风险：PEB 结构偏移仅限 x64；已在代码中通过 `IntPtr.Size != 8` 返回 `null` 保护。
+- 回滚：还原 `ProcessCommandLineReader.cs` 到 PowerShell/CIM 版本。
+
 ---
 
 *每执行2次查看/浏览器/搜索操作后更新此文件*
