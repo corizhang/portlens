@@ -23,7 +23,7 @@ jobs:
           global-json-file: global.json
 
       - name: Install Nerdbank.GitVersioning
-        run: dotnet tool install -g nbgv --version 3.7.112
+        run: dotnet tool install -g nbgv --version 3.7.112 || dotnet tool update -g nbgv --version 3.7.112 || true
 
       - name: Compute version
         id: nbgv
@@ -33,7 +33,7 @@ jobs:
           $packageVersion = (nbgv get-version -f json | ConvertFrom-Json).NuGetPackageVersion
           "version=$version" >> $env:GITHUB_OUTPUT
           "packageVersion=$packageVersion" >> $env:GITHUB_OUTPUT
-
+        shell: pwsh
       - name: Restore
         run: dotnet restore PortLens.sln
 
