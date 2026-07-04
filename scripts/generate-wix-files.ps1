@@ -15,7 +15,6 @@ $files = Get-ChildItem -Path $publishFullName -File -Recurse |
     Sort-Object FullName
 
 $components = [System.Text.StringBuilder]::new()
-$componentRefs = [System.Text.StringBuilder]::new()
 $index = 0
 
 foreach ($file in $files) {
@@ -29,18 +28,15 @@ foreach ($file in $files) {
     $line1 = "      <Component Id=`"$componentId`" Guid=`"$guid`">"
     $line2 = "        <File Id=`"$safeId`" Source=`"`$(var.PublishDir)$relativePath`" KeyPath=`"yes`" />"
     $line3 = "      </Component>"
-    $line4 = "      <ComponentRef Id=`"$componentId`" />"
 
     [void]$components.AppendLine($line1)
     [void]$components.AppendLine($line2)
     [void]$components.AppendLine($line3)
-    [void]$componentRefs.AppendLine($line4)
 
     $index++
 }
 
 $componentsText = $components.ToString().TrimEnd()
-$componentRefsText = $componentRefs.ToString().TrimEnd()
 
 $wxs = @"
 <?xml version="1.0" encoding="UTF-8"?>
@@ -49,7 +45,6 @@ $wxs = @"
     <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
 $componentsText
     </ComponentGroup>
-$componentRefsText
   </Fragment>
 </Wix>
 "@
