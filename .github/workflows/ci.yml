@@ -36,13 +36,14 @@ jobs:
           $info = nbgv get-version -f json | ConvertFrom-Json
           "version=$($info.SimpleVersion)" >> $env:GITHUB_OUTPUT
           "packageVersion=$($info.NuGetPackageVersion)" >> $env:GITHUB_OUTPUT
-          "assemblyVersion=$($info.AssemblyInformationalVersion)" >> $env:GITHUB_OUTPUT
+          "assemblyVersion=$($info.Version)" >> $env:GITHUB_OUTPUT
+          "informationalVersion=$($info.AssemblyInformationalVersion)" >> $env:GITHUB_OUTPUT
         shell: pwsh
       - name: Restore
         run: dotnet restore PortLens.sln
 
       - name: Build
-        run: dotnet build PortLens.sln --no-restore --configuration Release -p:Version='${{ steps.nbgv.outputs.version }}' -p:AssemblyVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:FileVersion='${{ steps.nbgv.outputs.version }}' -p:InformationalVersion='${{ steps.nbgv.outputs.assemblyVersion }}'
+        run: dotnet build PortLens.sln --no-restore --configuration Release -p:Version='${{ steps.nbgv.outputs.version }}' -p:AssemblyVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:FileVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:InformationalVersion='${{ steps.nbgv.outputs.informationalVersion }}'
 
       - name: Test
         run: dotnet test PortLens.sln --no-build --configuration Release
