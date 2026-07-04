@@ -10,15 +10,15 @@ public sealed class ProcessInspector
     private readonly CpuSampler _cpuSampler = new();
     private readonly ConcurrentDictionary<int, CachedProcessInfo> _detailsCache = new();
     private readonly ConcurrentDictionary<int, CachedProcessInfo> _basicDetailsCache = new();
-    private readonly ProcessCommandLineReader _commandLineReader;
+    private readonly IProcessCommandLineReader _commandLineReader;
     private readonly ProcessCurrentDirectoryReader _currentDirectoryReader;
-    private readonly ProcessTreeReader _processTreeReader;
+    private readonly IProcessTreeReader _processTreeReader;
     private readonly ILogger<ProcessInspector> _logger;
 
     public ProcessInspector(
-        ProcessCommandLineReader commandLineReader,
+        IProcessCommandLineReader commandLineReader,
         ProcessCurrentDirectoryReader currentDirectoryReader,
-        ProcessTreeReader processTreeReader,
+        IProcessTreeReader processTreeReader,
         ILogger<ProcessInspector> logger)
     {
         _commandLineReader = commandLineReader;
@@ -33,6 +33,8 @@ public sealed class ProcessInspector
         PruneCache(_detailsCache, live);
         PruneCache(_basicDetailsCache, live);
         _cpuSampler.Prune(live);
+        _commandLineReader.Prune(live);
+        _processTreeReader.Prune(live);
     }
 
     public void PreloadProcessDetails(IEnumerable<int> processIds, CancellationToken cancellationToken = default)

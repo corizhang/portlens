@@ -6,10 +6,20 @@ using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
 
-public sealed class ProcessCommandLineReader
+public interface IProcessCommandLineReader
+{
+    string? Read(int processId, CancellationToken cancellationToken = default);
+    IReadOnlyDictionary<int, string?> ReadMany(IReadOnlyCollection<int> processIds, CancellationToken cancellationToken = default);
+    void Prune(IEnumerable<int> liveProcessIds);
+}
+
+public sealed class ProcessCommandLineReader : IProcessCommandLineReader
 {
     private static readonly Regex CommandLineRegex = new(@"\s+", RegexOptions.Compiled);
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
+
     private readonly ILogger<ProcessCommandLineReader> _logger;
+    private readonly ConcurrentDictionary<int, CacheEntry> _cache = new();
 
     public ProcessCommandLineReader(ILogger<ProcessCommandLineReader> logger)
     {
@@ -18,6 +28,11 @@ public sealed class ProcessCommandLineReader
 
     public string? Read(int processId, CancellationToken cancellationToken = default)
     {
+        if (TryGetCached(processId, out var cached))
+        {
+            return cached;
+        }
+
         return Safe(() =>
         {
             var startInfo = new ProcessStartInfo
@@ -41,17 +56,16 @@ public sealed class ProcessCommandLineReader
                 var output = process.StandardOutput.ReadToEnd();
                 if (!process.WaitForExit(350))
                 {
-                    Safe(() =>
-                    {
-                        process.Kill(entireProcessTree: true);
-                    });
+                    Safe(() => process.Kill(entireProcessTree: true));
                     return null;
                 }
 
                 var trimmed = output.Trim();
-                return string.IsNullOrWhiteSpace(trimmed)
+                var commandLine = string.IsNullOrWhiteSpace(trimmed)
                     ? null
                     : CommandLineRegex.Replace(trimmed, " ");
+                StoreCache(processId, commandLine);
+                return commandLine;
             }
         });
     }
@@ -63,9 +77,28 @@ public sealed class ProcessCommandLineReader
             return new Dictionary<int, string?>();
         }
 
-        return Safe(() =>
+        var result = new Dictionary<int, string?>();
+        var missing = new List<int>();
+        foreach (var processId in processIds)
         {
-            var filter = BuildProcessIdFilter(processIds);
+            if (TryGetCached(processId, out var cached))
+            {
+                result[processId] = cached;
+            }
+            else
+            {
+                missing.Add(processId);
+            }
+        }
+
+        if (missing.Count == 0)
+        {
+            return result;
+        }
+
+        var fetched = Safe(() =>
+        {
+            var filter = BuildProcessIdFilter(missing);
             var startInfo = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
@@ -87,17 +120,48 @@ public sealed class ProcessCommandLineReader
                 var output = process.StandardOutput.ReadToEnd();
                 if (!process.WaitForExit(1200))
                 {
-                    Safe(() =>
-                    {
-                        process.Kill(entireProcessTree: true);
-                    });
+                    Safe(() => process.Kill(entireProcessTree: true));
                     return new Dictionary<int, string?>();
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
-                return ParseJsonProcessOutput(output, processIds);
+                return ParseJsonProcessOutput(output, missing);
             }
         }) ?? new Dictionary<int, string?>();
+
+        foreach (var pair in fetched)
+        {
+            result[pair.Key] = pair.Value;
+            StoreCache(pair.Key, pair.Value);
+        }
+
+        return result;
+    }
+
+    public void Prune(IEnumerable<int> liveProcessIds)
+    {
+        var live = liveProcessIds.ToHashSet();
+        foreach (var key in _cache.Keys.Where(key => !live.Contains(key)).ToList())
+        {
+            _cache.TryRemove(key, out _);
+        }
+    }
+
+    private bool TryGetCached(int processId, out string? commandLine)
+    {
+        if (_cache.TryGetValue(processId, out var entry) && !entry.IsExpired)
+        {
+            commandLine = entry.CommandLine;
+            return true;
+        }
+
+        commandLine = null;
+        return false;
+    }
+
+    private void StoreCache(int processId, string? commandLine)
+    {
+        _cache[processId] = new CacheEntry(commandLine, DateTimeOffset.UtcNow);
     }
 
     private static string BuildProcessIdFilter(IEnumerable<int> processIds)
@@ -166,5 +230,18 @@ public sealed class ProcessCommandLineReader
         {
             _logger.LogWarning(ex, "Failed to read process command line.");
         }
+    }
+
+    private sealed class CacheEntry
+    {
+        public CacheEntry(string? commandLine, DateTimeOffset cachedAt)
+        {
+            CommandLine = commandLine;
+            CachedAt = cachedAt;
+        }
+
+        public string? CommandLine { get; }
+        public DateTimeOffset CachedAt { get; }
+        public bool IsExpired => DateTimeOffset.UtcNow - CachedAt > CacheTtl;
     }
 }

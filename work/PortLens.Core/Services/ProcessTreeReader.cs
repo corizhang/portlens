@@ -4,73 +4,36 @@ using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
 
-public sealed class ProcessTreeReader
+public interface IProcessTreeReader
 {
+    int CountDescendants(int processId, CancellationToken cancellationToken = default);
+    void Prune(IEnumerable<int> liveProcessIds);
+}
+
+public sealed class ProcessTreeReader : IProcessTreeReader
+{
+    private static readonly TimeSpan SnapshotTtl = TimeSpan.FromSeconds(60);
+
     private readonly ILogger<ProcessTreeReader> _logger;
+    private Snapshot? _snapshot;
+    private readonly object _snapshotLock = new();
 
     public ProcessTreeReader(ILogger<ProcessTreeReader> logger)
     {
         _logger = logger;
     }
 
-    public int CountDescendants(int processId)
+    public int CountDescendants(int processId, CancellationToken cancellationToken = default)
     {
-        return Safe(() =>
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                return 0;
-            }
-
-            var output = process.StandardOutput.ReadToEnd();
-            if (!process.WaitForExit(1200))
-            {
-                Safe(() =>
-                {
-                    process.Kill(entireProcessTree: true);
-                });
-                return 0;
-            }
-
-            return CountDescendantsFromJson(output, processId);
-        });
-    }
-
-    private static int CountDescendantsFromJson(string output, int rootProcessId)
-    {
-        if (string.IsNullOrWhiteSpace(output))
+        var childrenByParent = GetSnapshot(cancellationToken);
+        if (childrenByParent is null)
         {
             return 0;
         }
 
-        var childrenByParent = new Dictionary<int, List<int>>();
-        using var document = JsonDocument.Parse(output);
-        if (document.RootElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var element in document.RootElement.EnumerateArray())
-            {
-                AddProcess(element, childrenByParent);
-            }
-        }
-        else if (document.RootElement.ValueKind == JsonValueKind.Object)
-        {
-            AddProcess(document.RootElement, childrenByParent);
-        }
-
         var count = 0;
         var stack = new Stack<int>();
-        stack.Push(rootProcessId);
+        stack.Push(processId);
         while (stack.Count > 0)
         {
             var parent = stack.Pop();
@@ -87,6 +50,115 @@ public sealed class ProcessTreeReader
         }
 
         return count;
+    }
+
+    public void Prune(IEnumerable<int> liveProcessIds)
+    {
+        lock (_snapshotLock)
+        {
+            if (_snapshot is null)
+            {
+                return;
+            }
+
+            var live = liveProcessIds.ToHashSet();
+            var pruned = new Dictionary<int, IReadOnlyList<int>>();
+            foreach (var pair in _snapshot.ChildrenByParent)
+            {
+                if (live.Contains(pair.Key))
+                {
+                    var filteredChildren = pair.Value.Where(child => live.Contains(child)).ToList();
+                    if (filteredChildren.Count > 0)
+                    {
+                        pruned[pair.Key] = filteredChildren;
+                    }
+                }
+            }
+
+            _snapshot = new Snapshot(pruned, _snapshot.CachedAt);
+        }
+    }
+
+    private IReadOnlyDictionary<int, IReadOnlyList<int>>? GetSnapshot(CancellationToken cancellationToken)
+    {
+        lock (_snapshotLock)
+        {
+            if (_snapshot is { IsExpired: false })
+            {
+                return _snapshot.ChildrenByParent;
+            }
+        }
+
+        var childrenByParent = FetchSnapshot(cancellationToken);
+        if (childrenByParent is null)
+        {
+            return null;
+        }
+
+        lock (_snapshotLock)
+        {
+            _snapshot = new Snapshot(childrenByParent, DateTimeOffset.UtcNow);
+            return _snapshot.ChildrenByParent;
+        }
+    }
+
+    private IReadOnlyDictionary<int, IReadOnlyList<int>>? FetchSnapshot(CancellationToken cancellationToken)
+    {
+        return Safe(() =>
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            using var process = Process.Start(startInfo);
+            if (process is null)
+            {
+                return null;
+            }
+
+            using (cancellationToken.Register(() => Safe(() => process.Kill(entireProcessTree: true))))
+            {
+                var output = process.StandardOutput.ReadToEnd();
+                if (!process.WaitForExit(1200))
+                {
+                    Safe(() => process.Kill(entireProcessTree: true));
+                    return null;
+                }
+
+                cancellationToken.ThrowIfCancellationRequested();
+                return ParseSnapshot(output);
+            }
+        });
+    }
+
+    private static IReadOnlyDictionary<int, IReadOnlyList<int>>? ParseSnapshot(string output)
+    {
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return null;
+        }
+
+        var childrenByParent = new Dictionary<int, List<int>>();
+        using var document = JsonDocument.Parse(output);
+        if (document.RootElement.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var element in document.RootElement.EnumerateArray())
+            {
+                AddProcess(element, childrenByParent);
+            }
+        }
+        else if (document.RootElement.ValueKind == JsonValueKind.Object)
+        {
+            AddProcess(document.RootElement, childrenByParent);
+        }
+
+        return childrenByParent.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<int>)pair.Value);
     }
 
     private static void AddProcess(JsonElement element, Dictionary<int, List<int>> childrenByParent)
@@ -131,5 +203,18 @@ public sealed class ProcessTreeReader
         {
             _logger.LogWarning(ex, "Failed to count process descendants.");
         }
+    }
+
+    private sealed class Snapshot
+    {
+        public Snapshot(IReadOnlyDictionary<int, IReadOnlyList<int>> childrenByParent, DateTimeOffset cachedAt)
+        {
+            ChildrenByParent = childrenByParent;
+            CachedAt = cachedAt;
+        }
+
+        public IReadOnlyDictionary<int, IReadOnlyList<int>> ChildrenByParent { get; }
+        public DateTimeOffset CachedAt { get; }
+        public bool IsExpired => DateTimeOffset.UtcNow - CachedAt > SnapshotTtl;
     }
 }
