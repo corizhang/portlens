@@ -6,6 +6,7 @@
     <AssemblyName>PortLens</AssemblyName>
     <RootNamespace>PortLens.Desktop</RootNamespace>
     <ApplicationIcon>Assets\portlens-icon.ico</ApplicationIcon>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>

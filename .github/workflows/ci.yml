@@ -1,8 +1,9 @@
-name: Build and Test
+name: Build, Test and Release
 
 on:
   push:
     branches: [main, master]
+    tags: ['v*']
   pull_request:
     branches: [main, master]
 
@@ -13,11 +14,25 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           global-json-file: global.json
+
+      - name: Install Nerdbank.GitVersioning
+        run: dotnet tool install -g nbgv --version 3.7.112
+
+      - name: Compute version
+        id: nbgv
+        run: |
+          nbgv cloud
+          $version = (nbgv get-version -f json | ConvertFrom-Json).SimpleVersion
+          $packageVersion = (nbgv get-version -f json | ConvertFrom-Json).NuGetPackageVersion
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "packageVersion=$packageVersion" >> $env:GITHUB_OUTPUT
 
       - name: Restore
         run: dotnet restore PortLens.sln
@@ -32,9 +47,25 @@ jobs:
         shell: pwsh
         run: ./scripts/publish.ps1
 
+      - name: Package artifact
+        shell: pwsh
+        run: |
+          $version = '${{ steps.nbgv.outputs.version }}'
+          $zipName = "PortLens-v$version-win-x64.zip"
+          Compress-Archive -Path "outputs\PortLensMaterial\*" -DestinationPath "outputs\$zipName" -Force
+          Write-Host "Created outputs\$zipName"
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: PortLens
+          name: PortLens-${{ steps.nbgv.outputs.version }}
           path: outputs/PortLensMaterial
           retention-days: 7
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: PortLens ${{ steps.nbgv.outputs.version }}
+          files: outputs/PortLens-v*.zip
+          generate_release_notes: true
