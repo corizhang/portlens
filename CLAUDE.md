@@ -71,12 +71,13 @@ A GitHub Actions workflow in `.github/workflows/ci.yml` runs on pushes and PRs t
 
 `ProcessInspector` coordinates several focused services:
 
-- `ProcessCommandLineReader` fetches command lines via PowerShell/CIM (`Win32_Process`), batched by PID.
+- `ProcessCommandLineReader` fetches command lines via native Windows APIs (`NtQueryInformationProcess` with `ProcessCommandLineInformation`, falling back to PEB + `RTL_USER_PROCESS_PARAMETERS.CommandLine`), with no PowerShell/CIM overhead.
 - `ProcessCurrentDirectoryReader` reads the current working directory from the process PEB.
 - `ProcessTreeReader` counts child processes.
 - `FrameworkDetector` infers frameworks from a combined haystack of process name, command line, working directory, and executable path.
 - `ProjectNameResolver` / `ProjectRootResolver` walk command-line paths and directory markers to infer project names and roots.
-- `CpuSampler` computes CPU by comparing `Process.TotalProcessorTime` samples.
+- `CpuSampler` computes CPU from a process snapshot's `TotalProcessorTime`.
+- `ProcessInspector.CaptureSnapshot` calls `Process.GetProcesses()` once per scan and passes the snapshot dictionary to enrichment methods, avoiding repeated `Process.GetProcessById` calls.
 
 All heavy lookups are cached in `ConcurrentDictionary`s and pruned to live process IDs each scan.
 
@@ -91,6 +92,7 @@ The UI uses MVVM and dependency injection:
 - Filtering and grouping use WPF `CollectionViewSource`:
   - Search filters on a precomputed joined string of port, PID, names, framework, command, and directory.
   - Project grouping uses `PortEntryViewModel.ProjectGroupKey` from `ProjectRootResolver`.
+- `MainWindowViewModel.ApplyEntries` uses a `SuppressibleObservableCollection` to diff the incoming scan results against the existing VMs and raise a single `Reset` event, reducing the WPF layout and grouping work during refreshes.
 - A `DispatcherTimer` drives recurring scans. The interval slows from the user-selected foreground interval (3/5/10/30s) to at least 30s when hidden or minimized.
 - Settings are persisted to `%APPDATA%/PortLens/settings.json` through `DesktopSettingsStore`, with versioned migrations.
 - `Themes/PortLensColors.xaml` and `Themes/PortLensStyles.xaml` centralize brushes and styles.
@@ -135,5 +137,10 @@ The UI uses MVVM and dependency injection:
 - Native TCP table reader: `work/PortLens.Core/Services/NativeTcp.cs`
 - Settings model/store: `work/PortLens.Desktop/Settings/DesktopSettings.cs`, `DesktopSettingsStore.cs`
 - Tests: `work/PortLens.Core.Tests/`
+- Native command-line reader: `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+- Process snapshot: `work/PortLens.Core/Models/ProcessSnapshot.cs`
+- Entry identity key: `work/PortLens.Core/Models/PortEntryKey.cs`
+- Bulk collection updates: `work/PortLens.Desktop/Collections/SuppressibleObservableCollection.cs`
+- Entry view model: `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
 - Publish script: `scripts/publish.ps1`
 - CI workflow: `.github/workflows/ci.yml`
