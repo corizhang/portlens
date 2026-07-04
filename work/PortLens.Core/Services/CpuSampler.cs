@@ -9,13 +9,12 @@ internal sealed class CpuSampler
 
     private readonly ConcurrentDictionary<int, ProcessSample> _lastSamples = new();
 
-    public double? CalculateCpu(Process process)
+    public double? CalculateCpu(int processId, TimeSpan totalProcessorTime)
     {
         var now = DateTimeOffset.UtcNow;
-        var total = process.TotalProcessorTime;
 
-        _lastSamples.TryGetValue(process.Id, out var last);
-        _lastSamples[process.Id] = new ProcessSample(now, total);
+        _lastSamples.TryGetValue(processId, out var last);
+        _lastSamples[processId] = new ProcessSample(now, totalProcessorTime);
 
         if (last is null)
         {
@@ -28,7 +27,7 @@ internal sealed class CpuSampler
             return null;
         }
 
-        var cpuMs = (total - last.TotalProcessorTime).TotalMilliseconds;
+        var cpuMs = (totalProcessorTime - last.TotalProcessorTime).TotalMilliseconds;
         return Math.Max(0, Math.Round(cpuMs / elapsedMs / Environment.ProcessorCount * 100, 1));
     }
 

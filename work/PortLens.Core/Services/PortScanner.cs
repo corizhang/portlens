@@ -31,6 +31,7 @@ public sealed class PortScanner
         var liveProcessIds = rows.Select(row => row.ProcessId).Distinct().ToArray();
         _inspector.PruneCaches(liveProcessIds);
         _inspector.PreloadProcessDetails(liveProcessIds, cancellationToken);
+        var snapshot = _inspector.CaptureSnapshot(liveProcessIds);
 
         var entries = new List<PortEntry>();
         foreach (var row in rows)
@@ -45,13 +46,13 @@ public sealed class PortScanner
                 ProcessId = row.ProcessId
             };
 
-            _inspector.EnrichBasic(entry, cancellationToken);
+            _inspector.EnrichBasic(entry, snapshot, cancellationToken);
             if (!options.ShowAll && !PortScannerFilters.IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
             {
                 continue;
             }
 
-            _inspector.EnrichDetails(entry, cancellationToken);
+            _inspector.EnrichDetails(entry, snapshot, cancellationToken);
             entries.Add(entry);
         }
 

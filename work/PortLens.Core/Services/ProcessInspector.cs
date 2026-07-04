@@ -37,6 +37,46 @@ public sealed class ProcessInspector
         _processTreeReader.Prune(live);
     }
 
+    public IReadOnlyDictionary<int, ProcessSnapshot> CaptureSnapshot(IEnumerable<int> processIds)
+    {
+        var wanted = processIds.ToHashSet();
+        var snapshot = new Dictionary<int, ProcessSnapshot>();
+        ProcessSnapshot? snap;
+        foreach (var process in Safe(() => Process.GetProcesses()) ?? Array.Empty<Process>())
+        {
+            using (process)
+            {
+                if (!wanted.Contains(process.Id))
+                {
+                    continue;
+                }
+
+                snap = null;
+                try
+                {
+                    snap = new ProcessSnapshot(
+                        process.Id,
+                        process.ProcessName,
+                        process.StartTime,
+                        process.WorkingSet64,
+                        process.TotalProcessorTime,
+                        process.MainModule?.FileName);
+                }
+                catch
+                {
+                    // Ignore processes we cannot inspect.
+                }
+
+                if (snap.HasValue)
+                {
+                    snapshot[snap.Value.Id] = snap.Value;
+                }
+            }
+        }
+
+        return snapshot;
+    }
+
     public void PreloadProcessDetails(IEnumerable<int> processIds, CancellationToken cancellationToken = default)
     {
         var missingIds = processIds
@@ -61,17 +101,23 @@ public sealed class ProcessInspector
         }
     }
 
-    public void EnrichBasic(PortEntry entry, CancellationToken cancellationToken = default)
+    public void EnrichBasic(PortEntry entry, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, CancellationToken cancellationToken = default)
     {
         try
         {
-            using var process = Process.GetProcessById(entry.ProcessId);
-            entry.ProcessName = process.ProcessName;
-            entry.StartedAt = process.StartTime;
-            entry.Uptime = DateTimeOffset.Now - process.StartTime;
-            entry.MemoryBytes = process.WorkingSet64;
-            entry.CpuPercent = _cpuSampler.CalculateCpu(process);
-            entry.RiskLevel = entry.CpuPercent.GetValueOrDefault() > 25 || ToMb(entry.MemoryBytes) > 1024 ? "Medium" : "Low";
+            if (snapshot.TryGetValue(entry.ProcessId, out var process))
+            {
+                entry.ProcessName = process.ProcessName;
+                entry.StartedAt = process.StartTime;
+                entry.Uptime = DateTimeOffset.Now - process.StartTime;
+                entry.MemoryBytes = process.WorkingSet64;
+                entry.CpuPercent = _cpuSampler.CalculateCpu(entry.ProcessId, process.TotalProcessorTime);
+                entry.RiskLevel = entry.CpuPercent.GetValueOrDefault() > 25 || ToMb(entry.MemoryBytes) > 1024 ? "Medium" : "Low";
+            }
+            else
+            {
+                entry.ProcessName = entry.ProcessName.Length > 0 ? entry.ProcessName : "Access denied";
+            }
 
             var cached = GetCachedDetails(entry.ProcessId, allowStale: true);
             if (cached is not null)
@@ -83,7 +129,7 @@ public sealed class ProcessInspector
             var basic = GetCachedBasicDetails(entry.ProcessId);
             if (basic is null)
             {
-                basic = ReadProcessDetails(entry.ProcessId, readExecutablePath: false, cancellationToken: cancellationToken);
+                basic = ReadProcessDetails(entry.ProcessId, snapshot, readExecutablePath: false, cancellationToken: cancellationToken);
                 _basicDetailsCache[entry.ProcessId] = basic;
             }
 
@@ -95,17 +141,17 @@ public sealed class ProcessInspector
         }
     }
 
-    public void EnrichDetails(PortEntry entry, CancellationToken cancellationToken = default)
+    public void EnrichDetails(PortEntry entry, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, CancellationToken cancellationToken = default)
     {
-        EnrichBasic(entry, cancellationToken);
+        EnrichBasic(entry, snapshot, cancellationToken);
 
         var cached = GetCachedDetails(entry.ProcessId, allowStale: false);
         if (cached is null)
         {
             var basic = GetCachedBasicDetails(entry.ProcessId);
             cached = basic is null
-                ? ReadProcessDetails(entry.ProcessId, readExecutablePath: true, cancellationToken: cancellationToken)
-                : ReadProcessDetails(entry.ProcessId, readExecutablePath: true, basic.CommandLine, cancellationToken);
+                ? ReadProcessDetails(entry.ProcessId, snapshot, readExecutablePath: true, cancellationToken: cancellationToken)
+                : ReadProcessDetails(entry.ProcessId, snapshot, readExecutablePath: true, basic.CommandLine, cancellationToken);
             _detailsCache[entry.ProcessId] = cached;
             _basicDetailsCache[entry.ProcessId] = cached;
         }
@@ -131,14 +177,12 @@ public sealed class ProcessInspector
         entry.IsRecognizedDevelopmentService = !string.IsNullOrWhiteSpace(entry.Framework);
     }
 
-    private CachedProcessInfo ReadProcessDetails(int processId, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
+    private CachedProcessInfo ReadProcessDetails(int processId, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
     {
         var commandLine = cachedCommandLine ?? _commandLineReader.Read(processId, cancellationToken);
-        var executablePath = Safe(() =>
-        {
-            using var process = Process.GetProcessById(processId);
-            return readExecutablePath ? process.MainModule?.FileName : null;
-        });
+        var executablePath = readExecutablePath && snapshot.TryGetValue(processId, out var process)
+            ? process.ExecutablePath
+            : null;
         var currentDirectory = _currentDirectoryReader.Read(processId);
         var workingDirectory = ProjectNameResolver.InferWorkingDirectory(commandLine, executablePath, currentDirectory);
         return new CachedProcessInfo(DateTimeOffset.UtcNow, executablePath, commandLine, workingDirectory);
@@ -178,7 +222,7 @@ public sealed class ProcessInspector
         }
     }
 
-    private static T? Safe<T>(Func<T?> action)
+    private T? Safe<T>(Func<T?> action)
     {
         try
         {
