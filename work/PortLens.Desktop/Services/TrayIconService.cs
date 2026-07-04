@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using Forms = System.Windows.Forms;
 using MaterialDesignThemes.Wpf;
+using PortLens.Desktop.Properties;
 using WpfColor = System.Windows.Media.Color;
 using WpfOrientation = System.Windows.Controls.Orientation;
 
@@ -70,7 +71,7 @@ internal sealed class TrayIconService : IDisposable
         var icon = new Forms.NotifyIcon
         {
             Icon = LoadTrayIcon(),
-            Text = "PortLens",
+            Text = Resources.GetString("TrayIconText"),
             Visible = true
         };
         icon.MouseClick += (_, args) =>
@@ -106,25 +107,25 @@ internal sealed class TrayIconService : IDisposable
             Padding = new Thickness(4),
             Focusable = true,
             StaysOpen = false,
-            Background = new SolidColorBrush(WpfColor.FromRgb(247, 242, 236)),
-            BorderBrush = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206)),
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(45, 38, 34)),
+            Background = FindBrush("PortLensBackgroundBrush"),
+            BorderBrush = FindBrush("PortLensBorderBrush"),
+            Foreground = FindBrush("PortLensGroupTitleBrush"),
             FontSize = 13
         };
 
         var status = _getStatus();
         menu.Items.Add(BuildStatusHeader(status));
         menu.Items.Add(BuildSeparator());
-        menu.Items.Add(BuildMenuItem("Open PortLens", PackIconKind.OpenInApp, (_, _) => _showMainWindow()));
-        menu.Items.Add(BuildMenuItem("Settings", PackIconKind.CogOutline, async (_, _) => await _showSettingsAsync()));
+        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuOpenPortLens"), PackIconKind.OpenInApp, (_, _) => _showMainWindow()));
+        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuSettings"), PackIconKind.CogOutline, async (_, _) => await _showSettingsAsync()));
         menu.Items.Add(BuildMenuItem(
-            status.IsPaused ? "Resume scanning" : "Pause scanning",
+            status.IsPaused ? Resources.GetString("TrayMenuResumeScanning") : Resources.GetString("TrayMenuPauseScanning"),
             status.IsPaused ? PackIconKind.PlayOutline : PackIconKind.Pause,
             (_, _) => _toggleScanPaused()));
-        menu.Items.Add(BuildMenuItem("Refresh", PackIconKind.Refresh, async (_, _) => await _refreshAsync(), isEnabled: !status.IsPaused));
-        menu.Items.Add(BuildMenuItem("Copy port summary", PackIconKind.ContentCopy, (_, _) => _copyPortSummary(), isEnabled: status.ServiceCount > 0));
+        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuRefresh"), PackIconKind.Refresh, async (_, _) => await _refreshAsync(), isEnabled: !status.IsPaused));
+        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuCopyPortSummary"), PackIconKind.ContentCopy, (_, _) => _copyPortSummary(), isEnabled: status.ServiceCount > 0));
         menu.Items.Add(BuildSeparator());
-        menu.Items.Add(BuildMenuItem("Exit", PackIconKind.ExitToApp, (_, _) => _exitApplication(), isDestructive: true));
+        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuExit"), PackIconKind.ExitToApp, (_, _) => _exitApplication(), isDestructive: true));
 
         menu.Closed += (_, _) =>
         {
@@ -147,21 +148,21 @@ internal sealed class TrayIconService : IDisposable
         panel.Children.Add(new TextBlock
         {
             Text = status.ShowAllPorts
-                ? $"{status.ServiceCount} listening ports"
-                : $"{status.ServiceCount} development services",
+                ? Resources.GetString("TrayStatusPortsFormat", status.ServiceCount)
+                : Resources.GetString("TrayStatusServicesFormat", status.ServiceCount),
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(45, 38, 34))
+            Foreground = FindBrush("PortLensGroupTitleBrush")
         });
         panel.Children.Add(new TextBlock
         {
             Text = status.IsPaused
-                ? "Scanning paused"
+                ? Resources.GetString("TrayStatusPaused")
                 : status.LastScanAt is { } lastScanAt
-                    ? $"Last scan {lastScanAt:HH:mm:ss}"
-                    : "Not scanned yet",
+                    ? Resources.GetString("TrayStatusLastScanFormat", lastScanAt)
+                    : Resources.GetString("TrayStatusNotScanned"),
             FontSize = 12,
-            Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+            Foreground = FindBrush("PortLensTextBrush"),
             Margin = new Thickness(0, 3, 0, 0)
         });
 
@@ -176,7 +177,7 @@ internal sealed class TrayIconService : IDisposable
         return new Separator
         {
             Margin = new Thickness(6, 4, 6, 4),
-            Background = new SolidColorBrush(WpfColor.FromRgb(226, 216, 206))
+            Background = FindBrush("PortLensBorderBrush")
         };
     }
 
@@ -199,11 +200,11 @@ internal sealed class TrayIconService : IDisposable
         bool isEnabled = true)
     {
         var foreground = isDestructive
-            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
-            : new SolidColorBrush(WpfColor.FromRgb(95, 55, 190));
+            ? FindBrush("PortLensDangerBrush")
+            : FindBrush("PortLensSettingsIconBrush");
         var labelBrush = isDestructive
-            ? new SolidColorBrush(WpfColor.FromRgb(190, 32, 32))
-            : new SolidColorBrush(WpfColor.FromRgb(45, 38, 34));
+            ? FindBrush("PortLensDangerBrush")
+            : FindBrush("PortLensGroupTitleBrush");
 
         var header = new StackPanel
         {
@@ -243,6 +244,12 @@ internal sealed class TrayIconService : IDisposable
         return resource is not null
             ? new System.Drawing.Icon(resource.Stream)
             : System.Drawing.SystemIcons.Application;
+    }
+
+    private static System.Windows.Media.Brush FindBrush(string key)
+    {
+        return System.Windows.Application.Current.TryFindResource(key) as System.Windows.Media.Brush
+            ?? new SolidColorBrush(WpfColor.FromRgb(124, 113, 106));
     }
 
     [DllImport("user32.dll")]

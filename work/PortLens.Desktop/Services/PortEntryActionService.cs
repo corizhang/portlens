@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using PortLens.Desktop.Dialogs;
+using PortLens.Desktop.Properties;
 using PortLens.Desktop.ViewModels;
 using PortLens.Services;
 
@@ -20,22 +21,22 @@ internal sealed class PortEntryActionService
 
     public void OpenUrl(PortEntryViewModel entry)
     {
-        TryStart(new ProcessStartInfo(entry.Url) { UseShellExecute = true }, $"Opened {entry.Url}", "Open URL failed.");
+        TryStart(new ProcessStartInfo(entry.Url) { UseShellExecute = true }, Resources.GetString("OpenedUrlFormat", entry.Url), Resources.GetString("OpenUrlFailed"));
     }
 
     public void CopyUrl(PortEntryViewModel entry)
     {
-        CopyText(entry.Url, $"Copied {entry.Url}");
+        CopyText(entry.Url, Resources.GetString("CopiedUrlFormat", entry.Url));
     }
 
     public void CopyPid(PortEntryViewModel entry)
     {
-        CopyText(entry.ProcessId.ToString(), $"Copied PID {entry.ProcessId}");
+        CopyText(entry.ProcessId.ToString(), Resources.GetString("CopiedPidFormat", entry.ProcessId));
     }
 
     public void CopyCommandLine(PortEntryViewModel entry)
     {
-        CopyText(entry.CommandText, "Copied command line.");
+        CopyText(entry.CommandText, Resources.GetString("CopiedCommandLine"));
     }
 
     public void OpenProcessDirectory(PortEntryViewModel entry)
@@ -43,22 +44,22 @@ internal sealed class PortEntryActionService
         var directory = entry.ProcessDirectory;
         if (string.IsNullOrWhiteSpace(directory))
         {
-            _notify("Process directory is unavailable.");
+            _notify(Resources.GetString("ProcessDirectoryUnavailable"));
             return;
         }
 
-        OpenDirectory(directory, "Process directory does not exist.");
+        OpenDirectory(directory, Resources.GetString("ProcessDirectoryMissing"));
     }
 
     public void OpenProjectDirectory(PortEntryViewModel entry)
     {
         if (string.IsNullOrWhiteSpace(entry.WorkingDirectory))
         {
-            _notify("Project directory is unavailable.");
+            _notify(Resources.GetString("ProjectDirectoryUnavailable"));
             return;
         }
 
-        OpenDirectory(entry.WorkingDirectory, "Project directory does not exist.");
+        OpenDirectory(entry.WorkingDirectory, Resources.GetString("ProjectDirectoryMissing"));
     }
 
     public void OpenTerminal(PortEntryViewModel entry)
@@ -68,7 +69,7 @@ internal sealed class PortEntryActionService
             : entry.ProcessDirectory;
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
         {
-            _notify("Terminal directory is unavailable.");
+            _notify(Resources.GetString("TerminalDirectoryUnavailable"));
             return;
         }
 
@@ -77,7 +78,7 @@ internal sealed class PortEntryActionService
                 UseShellExecute = true,
                 WorkingDirectory = directory
             },
-            "Opened terminal.",
+            Resources.GetString("OpenedTerminal"),
             null))
         {
             return;
@@ -87,7 +88,7 @@ internal sealed class PortEntryActionService
         {
             UseShellExecute = true,
             WorkingDirectory = directory
-        }, "Opened terminal.", "Open terminal failed.");
+        }, Resources.GetString("OpenedTerminal"), Resources.GetString("OpenTerminalFailed"));
     }
 
     public async Task KillProcessTreeAsync(PortEntryViewModel entry)
@@ -102,12 +103,12 @@ internal sealed class PortEntryActionService
         try
         {
             _scanner.Kill(entry.ProcessId);
-            _notify($"Killed PID {entry.ProcessId}.");
+            _notify(Resources.GetString("KilledPidFormat", entry.ProcessId));
             _ = _refreshAsync();
         }
         catch (Exception ex)
         {
-            _notify($"Kill failed: {ex.Message}");
+            _notify(Resources.GetString("KillFailedFormat", ex.Message));
         }
     }
 
@@ -119,7 +120,7 @@ internal sealed class PortEntryActionService
             return;
         }
 
-        TryStart(new ProcessStartInfo(directory) { UseShellExecute = true }, "Opened directory.", "Open directory failed.");
+        TryStart(new ProcessStartInfo(directory) { UseShellExecute = true }, Resources.GetString("OpenedDirectory"), Resources.GetString("OpenDirectoryFailed"));
     }
 
     private void CopyText(string text, string successMessage)
@@ -131,7 +132,7 @@ internal sealed class PortEntryActionService
         }
         catch (Exception ex)
         {
-            _notify($"Copy failed: {ex.Message}");
+            _notify(Resources.GetString("CopyFailedFormat", ex.Message));
         }
     }
 

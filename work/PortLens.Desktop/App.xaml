@@ -5,11 +5,12 @@
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <materialDesign:BundledTheme BaseTheme="Light"
-                                                 PrimaryColor="DeepPurple"
-                                                 SecondaryColor="Lime" />
+                <materialDesign:BundledTheme x:Name="AppBundledTheme"
+                                            BaseTheme="Light"
+                                            PrimaryColor="DeepPurple"
+                                            SecondaryColor="Lime" />
                 <ResourceDictionary Source="pack://application:,,,/MaterialDesignThemes.Wpf;component/Themes/MaterialDesign3.Defaults.xaml" />
-                <ResourceDictionary Source="Themes/PortLensColors.xaml" />
+                <ResourceDictionary Source="Themes/PortLensColors.Light.xaml" />
                 <ResourceDictionary Source="Themes/PortLensStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppResourceFormat" xml:space="preserve">
+    <value>CPU {0}  Mem {1} MB</value>
+  </data>
+  <data name="AppResourceIdle" xml:space="preserve">
+    <value>CPU --  Mem --</value>
+  </data>
+  <data name="AppSubtitle" xml:space="preserve">
+    <value>PortLens - local development port monitor</value>
+  </data>
+  <data name="BlacklistDescription" xml:space="preserve">
+    <value>Blacklisted ports stay hidden even when System ports is enabled.</value>
+  </data>
+  <data name="BlacklistEmpty" xml:space="preserve">
+    <value>No hidden ports.</value>
+  </data>
+  <data name="BlacklistTabFormat" xml:space="preserve">
+    <value>Blacklist ({0})</value>
+  </data>
+  <data name="BlacklistTitle" xml:space="preserve">
+    <value>Port blacklist</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="ButtonCopy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="ButtonDirectory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="ButtonKill" xml:space="preserve">
+    <value>Kill</value>
+  </data>
+  <data name="ButtonOpen" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="ButtonPID" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="ButtonRemove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="ButtonReset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="ConfirmKillMessageNoChildren" xml:space="preserve">
+    <value>Kill PID {0} ({1})?</value>
+  </data>
+  <data name="ConfirmKillMessageWithChildren" xml:space="preserve">
+    <value>Kill PID {0} ({1}) and {2} child process(es)?</value>
+  </data>
+  <data name="ConfirmKillTitle" xml:space="preserve">
+    <value>Confirm kill</value>
+  </data>
+  <data name="ContextMenuAddPortToBlacklist" xml:space="preserve">
+    <value>Add port to blacklist</value>
+  </data>
+  <data name="ContextMenuCopyCommandLine" xml:space="preserve">
+    <value>Copy command line</value>
+  </data>
+  <data name="ContextMenuCopyUrl" xml:space="preserve">
+    <value>Copy URL</value>
+  </data>
+  <data name="ContextMenuKillProcessTree" xml:space="preserve">
+    <value>Kill process tree</value>
+  </data>
+  <data name="ContextMenuOpenInTerminal" xml:space="preserve">
+    <value>Open in terminal</value>
+  </data>
+  <data name="ContextMenuOpenProcessDirectory" xml:space="preserve">
+    <value>Open process directory</value>
+  </data>
+  <data name="ContextMenuOpenProjectDirectory" xml:space="preserve">
+    <value>Open project directory</value>
+  </data>
+  <data name="ContextMenuOpenUrl" xml:space="preserve">
+    <value>Open URL</value>
+  </data>
+  <data name="CopiedCommandLine" xml:space="preserve">
+    <value>Copied command line.</value>
+  </data>
+  <data name="CopiedPidFormat" xml:space="preserve">
+    <value>Copied PID {0}</value>
+  </data>
+  <data name="CopiedUrlFormat" xml:space="preserve">
+    <value>Copied {0}</value>
+  </data>
+  <data name="CopyFailedFormat" xml:space="preserve">
+    <value>Copy failed: {0}</value>
+  </data>
+  <data name="CpuTextFormat" xml:space="preserve">
+    <value>{0:0.0}% CPU</value>
+  </data>
+  <data name="CpuTextIdle" xml:space="preserve">
+    <value>CPU ...</value>
+  </data>
+  <data name="EmptySubtitleNoServices" xml:space="preserve">
+    <value>Start a dev server, or enable System ports.</value>
+  </data>
+  <data name="EmptySubtitleScanning" xml:space="preserve">
+    <value>Looking for local listening ports.</value>
+  </data>
+  <data name="EmptyTitleNoServices" xml:space="preserve">
+    <value>No development services found</value>
+  </data>
+  <data name="EmptyTitleScanning" xml:space="preserve">
+    <value>Scanning...</value>
+  </data>
+  <data name="GroupHeaderPorts" xml:space="preserve">
+    <value>{0} ports</value>
+  </data>
+  <data name="KilledPidFormat" xml:space="preserve">
+    <value>Killed PID {0}.</value>
+  </data>
+  <data name="KillFailedFormat" xml:space="preserve">
+    <value>Kill failed: {0}</value>
+  </data>
+  <data name="LabelAddress" xml:space="preserve">
+    <value>Address</value>
+  </data>
+  <data name="LabelCommand" xml:space="preserve">
+    <value>Command</value>
+  </data>
+  <data name="LabelDirectory" xml:space="preserve">
+    <value>Directory</value>
+  </data>
+  <data name="LabelPID" xml:space="preserve">
+    <value>PID</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="LanguageSimplifiedChinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="LastScanFormat" xml:space="preserve">
+    <value>Scan {0:HH:mm:ss}</value>
+  </data>
+  <data name="MemoryTextFormat" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="OpenDirectoryFailed" xml:space="preserve">
+    <value>Open directory failed.</value>
+  </data>
+  <data name="OpenedDirectory" xml:space="preserve">
+    <value>Opened directory.</value>
+  </data>
+  <data name="OpenedTerminal" xml:space="preserve">
+    <value>Opened terminal.</value>
+  </data>
+  <data name="OpenedUrlFormat" xml:space="preserve">
+    <value>Opened {0}</value>
+  </data>
+  <data name="OpenTerminalFailed" xml:space="preserve">
+    <value>Open terminal failed.</value>
+  </data>
+  <data name="OpenUrlFailed" xml:space="preserve">
+    <value>Open URL failed.</value>
+  </data>
+  <data name="PortsTitle" xml:space="preserve">
+    <value>Ports</value>
+  </data>
+  <data name="ProcessDirectoryMissing" xml:space="preserve">
+    <value>Process directory does not exist.</value>
+  </data>
+  <data name="ProcessDirectoryUnavailable" xml:space="preserve">
+    <value>Process directory is unavailable.</value>
+  </data>
+  <data name="ProjectDirectoryMissing" xml:space="preserve">
+    <value>Project directory does not exist.</value>
+  </data>
+  <data name="ProjectDirectoryUnavailable" xml:space="preserve">
+    <value>Project directory is unavailable.</value>
+  </data>
+  <data name="RefreshInterval10Seconds" xml:space="preserve">
+    <value>10 seconds</value>
+  </data>
+  <data name="RefreshInterval30Seconds" xml:space="preserve">
+    <value>30 seconds</value>
+  </data>
+  <data name="RefreshInterval3Seconds" xml:space="preserve">
+    <value>3 seconds</value>
+  </data>
+  <data name="RefreshInterval5Seconds" xml:space="preserve">
+    <value>5 seconds</value>
+  </data>
+  <data name="RulesDescription" xml:space="preserve">
+    <value>These rules decide which recognized services appear when System ports is off.</value>
+  </data>
+  <data name="RulesTitle" xml:space="preserve">
+    <value>Development rules</value>
+  </data>
+  <data name="SearchHint" xml:space="preserve">
+    <value>Search localhost services</value>
+  </data>
+  <data name="ServiceCountPorts" xml:space="preserve">
+    <value>{0} ports</value>
+  </data>
+  <data name="ServiceCountServices" xml:space="preserve">
+    <value>{0} services</value>
+  </data>
+  <data name="SettingCloseBehaviorDescription" xml:space="preserve">
+    <value>Hide to tray when the close button is used.</value>
+  </data>
+  <data name="SettingCloseBehaviorTitle" xml:space="preserve">
+    <value>Close behavior</value>
+  </data>
+  <data name="SettingGroupByProjectDescription" xml:space="preserve">
+    <value>Group sibling services by inferred project root.</value>
+  </data>
+  <data name="SettingGroupByProjectTitle" xml:space="preserve">
+    <value>Group by project</value>
+  </data>
+  <data name="SettingLanguageDescription" xml:space="preserve">
+    <value>Select display language.</value>
+  </data>
+  <data name="SettingLanguageTitle" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="SettingRefreshIntervalDescription" xml:space="preserve">
+    <value>How often PortLens scans in the background.</value>
+  </data>
+  <data name="SettingRefreshIntervalTitle" xml:space="preserve">
+    <value>Refresh interval</value>
+  </data>
+  <data name="SettingStatusMetricsDescription" xml:space="preserve">
+    <value>Show PortLens CPU and memory in the status bar.</value>
+  </data>
+  <data name="SettingStatusMetricsTitle" xml:space="preserve">
+    <value>Status metrics</value>
+  </data>
+  <data name="SettingSystemPortsDescription" xml:space="preserve">
+    <value>Include non-development listening ports.</value>
+  </data>
+  <data name="SettingSystemPortsTitle" xml:space="preserve">
+    <value>System ports</value>
+  </data>
+  <data name="SettingThemeDescription" xml:space="preserve">
+    <value>Choose Light or Dark appearance.</value>
+  </data>
+  <data name="SettingThemeTitle" xml:space="preserve">
+    <value>Theme</value>
+  </data>
+  <data name="SettingWindowPlacementDescription" xml:space="preserve">
+    <value>Restore size and position on launch.</value>
+  </data>
+  <data name="SettingWindowPlacementTitle" xml:space="preserve">
+    <value>Window placement</value>
+  </data>
+  <data name="SettingChineseFontTitle" xml:space="preserve">
+    <value>Chinese font</value>
+  </data>
+  <data name="SettingChineseFontDescription" xml:space="preserve">
+    <value>Font used for Simplified Chinese text.</value>
+  </data>
+  <data name="SettingEnglishFontTitle" xml:space="preserve">
+    <value>English font</value>
+  </data>
+  <data name="SettingEnglishFontDescription" xml:space="preserve">
+    <value>Font used for English text.</value>
+  </data>
+  <data name="FontSystemDefault" xml:space="preserve">
+    <value>System default</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="SnackbarCopiedFormat" xml:space="preserve">
+    <value>Copied {0} port summaries.</value>
+  </data>
+  <data name="SnackbarCopyFailedFormat" xml:space="preserve">
+    <value>Copy failed: {0}</value>
+  </data>
+  <data name="SnackbarNoServices" xml:space="preserve">
+    <value>No services to copy.</value>
+  </data>
+  <data name="SnackbarPortBlacklistedFormat" xml:space="preserve">
+    <value>Port {0} added to blacklist.</value>
+  </data>
+  <data name="SnackbarSettingsSaveFailed" xml:space="preserve">
+    <value>Settings save failed.</value>
+  </data>
+  <data name="StatusBarToolTip" xml:space="preserve">
+    <value>Open settings</value>
+  </data>
+  <data name="StatusDevelopmentServices" xml:space="preserve">
+    <value>Development services</value>
+  </data>
+  <data name="StatusLocalListeningPorts" xml:space="preserve">
+    <value>Local listening ports</value>
+  </data>
+  <data name="StatusScanCancelled" xml:space="preserve">
+    <value>Scan cancelled.</value>
+  </data>
+  <data name="StatusScanFailedFormat" xml:space="preserve">
+    <value>Scan failed: {0}</value>
+  </data>
+  <data name="StatusScanning" xml:space="preserve">
+    <value>Scanning...</value>
+  </data>
+  <data name="StatusScanningPaused" xml:space="preserve">
+    <value>Scanning paused.</value>
+  </data>
+  <data name="StatusScanningResumed" xml:space="preserve">
+    <value>Scanning resumed.</value>
+  </data>
+  <data name="SystemPortsLabel" xml:space="preserve">
+    <value>System ports</value>
+  </data>
+  <data name="TabBlacklist" xml:space="preserve">
+    <value>Blacklist</value>
+  </data>
+  <data name="TabGeneral" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="TabRules" xml:space="preserve">
+    <value>Rules</value>
+  </data>
+  <data name="TerminalDirectoryUnavailable" xml:space="preserve">
+    <value>Terminal directory is unavailable.</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>Dark</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>Light</value>
+  </data>
+  <data name="ToolTipHideToTray" xml:space="preserve">
+    <value>Hide to tray</value>
+  </data>
+  <data name="ToolTipMinimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="ToolTipSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="TrayIconText" xml:space="preserve">
+    <value>PortLens</value>
+  </data>
+  <data name="TrayMenuCopyPortSummary" xml:space="preserve">
+    <value>Copy port summary</value>
+  </data>
+  <data name="TrayMenuExit" xml:space="preserve">
+    <value>Exit</value>
+  </data>
+  <data name="TrayMenuOpenPortLens" xml:space="preserve">
+    <value>Open PortLens</value>
+  </data>
+  <data name="TrayMenuPauseScanning" xml:space="preserve">
+    <value>Pause scanning</value>
+  </data>
+  <data name="TrayMenuRefresh" xml:space="preserve">
+    <value>Refresh</value>
+  </data>
+  <data name="TrayMenuResumeScanning" xml:space="preserve">
+    <value>Resume scanning</value>
+  </data>
+  <data name="TrayMenuSettings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="TrayStatusLastScanFormat" xml:space="preserve">
+    <value>Last scan {0:HH:mm:ss}</value>
+  </data>
+  <data name="TrayStatusNotScanned" xml:space="preserve">
+    <value>Not scanned yet</value>
+  </data>
+  <data name="TrayStatusPaused" xml:space="preserve">
+    <value>Scanning paused</value>
+  </data>
+  <data name="TrayStatusPortsFormat" xml:space="preserve">
+    <value>{0} listening ports</value>
+  </data>
+  <data name="TrayStatusServicesFormat" xml:space="preserve">
+    <value>{0} development services</value>
+  </data>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>PortLens</value>
+  </data>
+</root>

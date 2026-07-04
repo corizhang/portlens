@@ -2,10 +2,13 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MaterialDesignThemes.Wpf;
+using PortLens.Desktop.Properties;
+using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
+using WpfComboBox = System.Windows.Controls.ComboBox;
 
 namespace PortLens.Desktop.Dialogs;
 
@@ -25,10 +28,73 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         GroupByProjectToggle.IsChecked = state.GroupByProject;
         ShowAppMetricsToggle.IsChecked = state.ShowAppMetrics;
         SelectRefreshInterval(state.RefreshIntervalSeconds);
+        SelectTheme(state.Theme);
+        SelectLanguage(state.Language);
+        BuildFontCombo(ChineseFontCombo, state.ChineseFontFamily);
+        BuildFontCombo(EnglishFontCombo, state.EnglishFontFamily);
         BuildFrameworkRules(state.EnabledFrameworks);
         RenderBlacklist();
-        SelectTab(GeneralPage, GeneralTabButton);
         UpdateBlacklistTabTitle();
+    }
+
+    private void SettingsDialog_Loaded(object sender, RoutedEventArgs e)
+    {
+        SelectTab(0);
+    }
+
+    private void TabButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is WpfButton { Tag: string tag } && int.TryParse(tag, out var index))
+        {
+            SelectTab(index);
+        }
+    }
+
+    private void SelectTab(int index)
+    {
+        GeneralTabContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
+        RulesTabContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
+        BlacklistTabContent.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+
+        UpdateTabButtonState(TabGeneralButton, index == 0);
+        UpdateTabButtonState(TabRulesButton, index == 1);
+        UpdateTabButtonState(TabBlacklistButton, index == 2);
+    }
+
+    private void UpdateTabButtonState(WpfButton button, bool isSelected)
+    {
+        button.BorderThickness = new Thickness(0, 0, 0, isSelected ? 2 : 0);
+        button.Foreground = isSelected
+            ? TryFindResource("PortLensBrandBrush") as System.Windows.Media.Brush
+            : TryFindResource("PortLensSubtitleBrush") as System.Windows.Media.Brush;
+    }
+
+    private void SelectTheme(PortLens.Desktop.Settings.Theme theme)
+    {
+        foreach (var item in ThemeCombo.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag?.ToString() == theme.ToString())
+            {
+                ThemeCombo.SelectedItem = item;
+                return;
+            }
+        }
+
+        ThemeCombo.SelectedIndex = 0;
+    }
+
+    private void SelectLanguage(string language)
+    {
+        foreach (var item in LanguageCombo.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag?.ToString() == language)
+            {
+                LanguageCombo.SelectedItem = item;
+                return;
+            }
+        }
+
+        LanguageCombo.SelectedIndex = 0;
     }
 
     private void SelectRefreshInterval(int seconds)
@@ -43,6 +109,44 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         }
 
         RefreshIntervalCombo.SelectedIndex = 1;
+    }
+
+    private void BuildFontCombo(WpfComboBox comboBox, string selectedFont)
+    {
+        comboBox.Items.Clear();
+        comboBox.Items.Add(new ComboBoxItem
+        {
+            Content = Properties.Resources.GetString("FontSystemDefault"),
+            Tag = ""
+        });
+
+        foreach (var fontName in FontService.GetInstalledFontFamilies())
+        {
+            comboBox.Items.Add(new ComboBoxItem
+            {
+                Content = fontName,
+                Tag = fontName,
+                FontFamily = new System.Windows.Media.FontFamily(fontName)
+            });
+        }
+
+        foreach (var item in comboBox.Items.OfType<ComboBoxItem>())
+        {
+            if (item.Tag?.ToString() == selectedFont)
+            {
+                comboBox.SelectedItem = item;
+                return;
+            }
+        }
+
+        comboBox.SelectedIndex = 0;
+    }
+
+    private string GetSelectedFont(WpfComboBox comboBox)
+    {
+        return comboBox.SelectedItem is ComboBoxItem item
+            ? item.Tag?.ToString() ?? ""
+            : "";
     }
 
     private void BuildFrameworkRules(IReadOnlySet<string> enabledFrameworks)
@@ -69,8 +173,8 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         {
             BlacklistList.Children.Add(new TextBlock
             {
-                Text = "No hidden ports.",
-                Foreground = new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
+                Text = Properties.Resources.GetString("BlacklistEmpty"),
+                Foreground = TryFindResource("PortLensTextBrush") as System.Windows.Media.Brush ?? new SolidColorBrush(WpfColor.FromRgb(124, 113, 106)),
                 FontSize = 12
             });
             return;
@@ -89,13 +193,13 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
                 Text = $":{port}",
                 FontFamily = new System.Windows.Media.FontFamily("Consolas"),
                 FontWeight = FontWeights.SemiBold,
-                Foreground = new SolidColorBrush(WpfColor.FromRgb(63, 123, 200)),
+                Foreground = TryFindResource("PortLensPortBrush") as System.Windows.Media.Brush ?? new SolidColorBrush(WpfColor.FromRgb(63, 123, 200)),
                 VerticalAlignment = VerticalAlignment.Center
             });
 
             var remove = new WpfButton
             {
-                Content = "Remove",
+                Content = Properties.Resources.GetString("ButtonRemove"),
                 Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
                 MinWidth = 76,
                 Height = 28,
@@ -115,30 +219,7 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
 
     private void UpdateBlacklistTabTitle()
     {
-        BlacklistTabButton.Content = $"Blacklist ({_excludedPorts.Count})";
-    }
-
-    private void GeneralTabButton_Click(object sender, RoutedEventArgs e) => SelectTab(GeneralPage, GeneralTabButton);
-
-    private void RulesTabButton_Click(object sender, RoutedEventArgs e) => SelectTab(RulesPage, RulesTabButton);
-
-    private void BlacklistTabButton_Click(object sender, RoutedEventArgs e) => SelectTab(BlacklistPage, BlacklistTabButton);
-
-    private void SelectTab(FrameworkElement page, WpfButton selected)
-    {
-        GeneralPage.Visibility = Visibility.Collapsed;
-        RulesPage.Visibility = Visibility.Collapsed;
-        BlacklistPage.Visibility = Visibility.Collapsed;
-        page.Visibility = Visibility.Visible;
-
-        foreach (var tab in new[] { GeneralTabButton, RulesTabButton, BlacklistTabButton })
-        {
-            tab.Background = System.Windows.Media.Brushes.Transparent;
-            tab.Foreground = new SolidColorBrush(WpfColor.FromRgb(103, 58, 183));
-        }
-
-        selected.Background = new SolidColorBrush(WpfColor.FromRgb(237, 230, 246));
-        selected.Foreground = new SolidColorBrush(WpfColor.FromRgb(54, 30, 97));
+        TabBlacklistButton.Content = Properties.Resources.GetString("BlacklistTabFormat", _excludedPorts.Count);
     }
 
     private void ResetButton_Click(object sender, RoutedEventArgs e)
@@ -153,6 +234,15 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
             ? seconds
             : 5;
 
+        var selectedTheme = ThemeCombo.SelectedItem is ComboBoxItem themeItem &&
+                            Enum.TryParse<PortLens.Desktop.Settings.Theme>(themeItem.Tag?.ToString(), out var theme)
+            ? theme
+            : PortLens.Desktop.Settings.Theme.Light;
+
+        var selectedLanguage = LanguageCombo.SelectedItem is ComboBoxItem langItem
+            ? langItem.Tag?.ToString() ?? "en-US"
+            : "en-US";
+
         Close(new SettingsDialogResult
         {
             ShowSystemPorts = ShowSystemPortsToggle.IsChecked == true,
@@ -161,6 +251,10 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
             CloseToTray = CloseToTrayToggle.IsChecked == true,
             GroupByProject = GroupByProjectToggle.IsChecked == true,
             ShowAppMetrics = ShowAppMetricsToggle.IsChecked == true,
+            Theme = selectedTheme,
+            Language = selectedLanguage,
+            ChineseFontFamily = GetSelectedFont(ChineseFontCombo),
+            EnglishFontFamily = GetSelectedFont(EnglishFontCombo),
             EnabledFrameworks = _frameworkToggles
                 .Where(pair => pair.Value.IsChecked == true)
                 .Select(pair => pair.Key)

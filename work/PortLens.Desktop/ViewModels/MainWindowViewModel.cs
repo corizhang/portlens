@@ -4,6 +4,7 @@ using System.Windows.Data;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
 using PortLens.Desktop.Collections;
+using PortLens.Desktop.Properties;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Models;
@@ -27,14 +28,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private int _refreshIntervalSeconds = 5;
     private bool _groupByProject = true;
     private string _searchText = "";
-    private string _statusText = "Scanning...";
-    private string _serviceCountText = "0 services";
-    private string _lastScanText = "Scan --:--:--";
+    private string _statusText = Resources.GetString("StatusScanning");
+    private string _serviceCountText = Resources.GetString("ServiceCountServices", 0);
+    private string _lastScanText = Resources.GetString("LastScanFormat", DateTime.MinValue);
     private DateTime? _lastScanAt;
     private bool _isRefreshing;
     private bool _isLoading;
     private bool _showAppMetrics = true;
-    private string _appResourceText = "CPU --  Mem --";
+    private string _appResourceText = Properties.Resources.GetString("AppResourceIdle");
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
 
@@ -56,6 +57,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             _searchDebounceTimer.Stop();
             _ = RefreshSearchFilterAsync();
+        };
+
+        LocalizationManager.Instance.CultureChanged += (_, _) =>
+        {
+            OnPropertyChanged(nameof(EmptyTitle));
+            OnPropertyChanged(nameof(EmptySubtitle));
+            _ = RefreshAsync();
         };
     }
 
@@ -205,9 +213,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    public string EmptyTitle => IsLoading ? "Scanning..." : "No development services found";
+    public string EmptyTitle => IsLoading
+        ? Resources.GetString("EmptyTitleScanning")
+        : Resources.GetString("EmptyTitleNoServices");
 
-    public string EmptySubtitle => IsLoading ? "Looking for local listening ports." : "Start a dev server, or enable System ports.";
+    public string EmptySubtitle => IsLoading
+        ? Resources.GetString("EmptySubtitleScanning")
+        : Resources.GetString("EmptySubtitleNoServices");
 
     public IReadOnlyCollection<PortEntryViewModel> Entries => _entries;
 
@@ -230,7 +242,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var cancellationToken = _refreshCts.Token;
 
         IsLoading = true;
-        StatusText = "Scanning in background...";
+        StatusText = Resources.GetString("StatusScanning");
         var showAll = ShowSystemPorts;
 
         try
@@ -246,21 +258,21 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ApplyEntries(entries);
             _lastScanAt = DateTime.Now;
             ServiceCountText = showAll
-                ? $"{_entries.Count} ports"
-                : $"{_entries.Count} services";
-            LastScanText = $"Scan {_lastScanAt:HH:mm:ss}";
+                ? Resources.GetString("ServiceCountPorts", _entries.Count)
+                : Resources.GetString("ServiceCountServices", _entries.Count);
+            LastScanText = Resources.GetString("LastScanFormat", _lastScanAt.Value);
             StatusText = showAll
-                ? "Local listening ports"
-                : "Development services";
+                ? Resources.GetString("StatusLocalListeningPorts")
+                : Resources.GetString("StatusDevelopmentServices");
         }
         catch (OperationCanceledException)
         {
-            StatusText = "Scan cancelled.";
+            StatusText = Resources.GetString("StatusScanCancelled");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Scan failed.");
-            StatusText = $"Scan failed: {ex.Message}";
+            StatusText = Resources.GetString("StatusScanFailedFormat", ex.Message);
         }
         finally
         {

@@ -1,0 +1,442 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="AppResourceFormat" xml:space="preserve">
+    <value>CPU {0}  内存 {1} MB</value>
+  </data>
+  <data name="AppResourceIdle" xml:space="preserve">
+    <value>CPU --  内存 --</value>
+  </data>
+  <data name="AppSubtitle" xml:space="preserve">
+    <value>PortLens - 本地开发端口监控器</value>
+  </data>
+  <data name="BlacklistDescription" xml:space="preserve">
+    <value>即使启用了系统端口，黑名单中的端口也会保持隐藏。</value>
+  </data>
+  <data name="BlacklistEmpty" xml:space="preserve">
+    <value>没有隐藏的端口。</value>
+  </data>
+  <data name="BlacklistTabFormat" xml:space="preserve">
+    <value>黑名单 ({0})</value>
+  </data>
+  <data name="BlacklistTitle" xml:space="preserve">
+    <value>端口黑名单</value>
+  </data>
+  <data name="ButtonCancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="ButtonCopy" xml:space="preserve">
+    <value>复制</value>
+  </data>
+  <data name="ButtonDirectory" xml:space="preserve">
+    <value>目录</value>
+  </data>
+  <data name="ButtonKill" xml:space="preserve">
+    <value>结束</value>
+  </data>
+  <data name="ButtonOpen" xml:space="preserve">
+    <value>打开</value>
+  </data>
+  <data name="ButtonPID" xml:space="preserve">
+    <value>进程 ID</value>
+  </data>
+  <data name="ButtonRemove" xml:space="preserve">
+    <value>移除</value>
+  </data>
+  <data name="ButtonReset" xml:space="preserve">
+    <value>重置</value>
+  </data>
+  <data name="ButtonSave" xml:space="preserve">
+    <value>保存</value>
+  </data>
+  <data name="ConfirmKillMessageNoChildren" xml:space="preserve">
+    <value>结束 PID {0} ({1})？</value>
+  </data>
+  <data name="ConfirmKillMessageWithChildren" xml:space="preserve">
+    <value>结束 PID {0} ({1}) 及其 {2} 个子进程？</value>
+  </data>
+  <data name="ConfirmKillTitle" xml:space="preserve">
+    <value>确认结束</value>
+  </data>
+  <data name="ContextMenuAddPortToBlacklist" xml:space="preserve">
+    <value>添加端口到黑名单</value>
+  </data>
+  <data name="ContextMenuCopyCommandLine" xml:space="preserve">
+    <value>复制命令行</value>
+  </data>
+  <data name="ContextMenuCopyUrl" xml:space="preserve">
+    <value>复制 URL</value>
+  </data>
+  <data name="ContextMenuKillProcessTree" xml:space="preserve">
+    <value>结束进程树</value>
+  </data>
+  <data name="ContextMenuOpenInTerminal" xml:space="preserve">
+    <value>在终端中打开</value>
+  </data>
+  <data name="ContextMenuOpenProcessDirectory" xml:space="preserve">
+    <value>打开进程目录</value>
+  </data>
+  <data name="ContextMenuOpenProjectDirectory" xml:space="preserve">
+    <value>打开项目目录</value>
+  </data>
+  <data name="ContextMenuOpenUrl" xml:space="preserve">
+    <value>打开 URL</value>
+  </data>
+  <data name="CopiedCommandLine" xml:space="preserve">
+    <value>已复制命令行。</value>
+  </data>
+  <data name="CopiedPidFormat" xml:space="preserve">
+    <value>已复制 PID {0}</value>
+  </data>
+  <data name="CopiedUrlFormat" xml:space="preserve">
+    <value>已复制 {0}</value>
+  </data>
+  <data name="CopyFailedFormat" xml:space="preserve">
+    <value>复制失败：{0}</value>
+  </data>
+  <data name="CpuTextFormat" xml:space="preserve">
+    <value>{0:0.0}% CPU</value>
+  </data>
+  <data name="CpuTextIdle" xml:space="preserve">
+    <value>CPU ...</value>
+  </data>
+  <data name="EmptySubtitleNoServices" xml:space="preserve">
+    <value>启动一个开发服务器，或启用系统端口。</value>
+  </data>
+  <data name="EmptySubtitleScanning" xml:space="preserve">
+    <value>正在查找本地监听端口。</value>
+  </data>
+  <data name="EmptyTitleNoServices" xml:space="preserve">
+    <value>未找到开发服务</value>
+  </data>
+  <data name="EmptyTitleScanning" xml:space="preserve">
+    <value>扫描中...</value>
+  </data>
+  <data name="GroupHeaderPorts" xml:space="preserve">
+    <value>{0} 个端口</value>
+  </data>
+  <data name="KilledPidFormat" xml:space="preserve">
+    <value>已结束 PID {0}。</value>
+  </data>
+  <data name="KillFailedFormat" xml:space="preserve">
+    <value>结束失败：{0}</value>
+  </data>
+  <data name="LabelAddress" xml:space="preserve">
+    <value>地址</value>
+  </data>
+  <data name="LabelCommand" xml:space="preserve">
+    <value>命令</value>
+  </data>
+  <data name="LabelDirectory" xml:space="preserve">
+    <value>目录</value>
+  </data>
+  <data name="LabelPID" xml:space="preserve">
+    <value>进程 ID</value>
+  </data>
+  <data name="LanguageEnglish" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="LanguageSimplifiedChinese" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="LastScanFormat" xml:space="preserve">
+    <value>扫描 {0:HH:mm:ss}</value>
+  </data>
+  <data name="MemoryTextFormat" xml:space="preserve">
+    <value>{0} MB</value>
+  </data>
+  <data name="OpenDirectoryFailed" xml:space="preserve">
+    <value>打开目录失败。</value>
+  </data>
+  <data name="OpenedDirectory" xml:space="preserve">
+    <value>已打开目录。</value>
+  </data>
+  <data name="OpenedTerminal" xml:space="preserve">
+    <value>已打开终端。</value>
+  </data>
+  <data name="OpenedUrlFormat" xml:space="preserve">
+    <value>已打开 {0}</value>
+  </data>
+  <data name="OpenTerminalFailed" xml:space="preserve">
+    <value>打开终端失败。</value>
+  </data>
+  <data name="OpenUrlFailed" xml:space="preserve">
+    <value>打开 URL 失败。</value>
+  </data>
+  <data name="PortsTitle" xml:space="preserve">
+    <value>端口</value>
+  </data>
+  <data name="ProcessDirectoryMissing" xml:space="preserve">
+    <value>进程目录不存在。</value>
+  </data>
+  <data name="ProcessDirectoryUnavailable" xml:space="preserve">
+    <value>进程目录不可用。</value>
+  </data>
+  <data name="ProjectDirectoryMissing" xml:space="preserve">
+    <value>项目目录不存在。</value>
+  </data>
+  <data name="ProjectDirectoryUnavailable" xml:space="preserve">
+    <value>项目目录不可用。</value>
+  </data>
+  <data name="RefreshInterval10Seconds" xml:space="preserve">
+    <value>10 秒</value>
+  </data>
+  <data name="RefreshInterval30Seconds" xml:space="preserve">
+    <value>30 秒</value>
+  </data>
+  <data name="RefreshInterval3Seconds" xml:space="preserve">
+    <value>3 秒</value>
+  </data>
+  <data name="RefreshInterval5Seconds" xml:space="preserve">
+    <value>5 秒</value>
+  </data>
+  <data name="RulesDescription" xml:space="preserve">
+    <value>当系统端口关闭时，这些规则决定显示哪些已识别的服务。</value>
+  </data>
+  <data name="RulesTitle" xml:space="preserve">
+    <value>开发规则</value>
+  </data>
+  <data name="SearchHint" xml:space="preserve">
+    <value>搜索本地服务</value>
+  </data>
+  <data name="ServiceCountPorts" xml:space="preserve">
+    <value>{0} 个端口</value>
+  </data>
+  <data name="ServiceCountServices" xml:space="preserve">
+    <value>{0} 个服务</value>
+  </data>
+  <data name="SettingCloseBehaviorDescription" xml:space="preserve">
+    <value>点击关闭按钮时隐藏到托盘。</value>
+  </data>
+  <data name="SettingCloseBehaviorTitle" xml:space="preserve">
+    <value>关闭行为</value>
+  </data>
+  <data name="SettingGroupByProjectDescription" xml:space="preserve">
+    <value>按推断的项目根目录对 sibling 服务分组。</value>
+  </data>
+  <data name="SettingGroupByProjectTitle" xml:space="preserve">
+    <value>按项目分组</value>
+  </data>
+  <data name="SettingLanguageDescription" xml:space="preserve">
+    <value>选择显示语言。</value>
+  </data>
+  <data name="SettingLanguageTitle" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="SettingRefreshIntervalDescription" xml:space="preserve">
+    <value>PortLens 在后台扫描的频率。</value>
+  </data>
+  <data name="SettingRefreshIntervalTitle" xml:space="preserve">
+    <value>刷新间隔</value>
+  </data>
+  <data name="SettingStatusMetricsDescription" xml:space="preserve">
+    <value>在状态栏显示 PortLens 的 CPU 和内存。</value>
+  </data>
+  <data name="SettingStatusMetricsTitle" xml:space="preserve">
+    <value>状态指标</value>
+  </data>
+  <data name="SettingSystemPortsDescription" xml:space="preserve">
+    <value>包含非开发监听端口。</value>
+  </data>
+  <data name="SettingSystemPortsTitle" xml:space="preserve">
+    <value>系统端口</value>
+  </data>
+  <data name="SettingThemeDescription" xml:space="preserve">
+    <value>选择浅色或深色外观。</value>
+  </data>
+  <data name="SettingThemeTitle" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="SettingWindowPlacementDescription" xml:space="preserve">
+    <value>启动时恢复窗口大小和位置。</value>
+  </data>
+  <data name="SettingWindowPlacementTitle" xml:space="preserve">
+    <value>窗口位置</value>
+  </data>
+  <data name="SettingChineseFontTitle" xml:space="preserve">
+    <value>中文字体</value>
+  </data>
+  <data name="SettingChineseFontDescription" xml:space="preserve">
+    <value>简体中文文本使用的字体。</value>
+  </data>
+  <data name="SettingEnglishFontTitle" xml:space="preserve">
+    <value>英文字体</value>
+  </data>
+  <data name="SettingEnglishFontDescription" xml:space="preserve">
+    <value>英文文本使用的字体。</value>
+  </data>
+  <data name="FontSystemDefault" xml:space="preserve">
+    <value>系统默认</value>
+  </data>
+  <data name="SettingsTitle" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="SnackbarCopiedFormat" xml:space="preserve">
+    <value>已复制 {0} 个端口摘要。</value>
+  </data>
+  <data name="SnackbarCopyFailedFormat" xml:space="preserve">
+    <value>复制失败：{0}</value>
+  </data>
+  <data name="SnackbarNoServices" xml:space="preserve">
+    <value>没有可复制的服务。</value>
+  </data>
+  <data name="SnackbarPortBlacklistedFormat" xml:space="preserve">
+    <value>端口 {0} 已加入黑名单。</value>
+  </data>
+  <data name="SnackbarSettingsSaveFailed" xml:space="preserve">
+    <value>设置保存失败。</value>
+  </data>
+  <data name="StatusBarToolTip" xml:space="preserve">
+    <value>打开设置</value>
+  </data>
+  <data name="StatusDevelopmentServices" xml:space="preserve">
+    <value>开发服务</value>
+  </data>
+  <data name="StatusLocalListeningPorts" xml:space="preserve">
+    <value>本地监听端口</value>
+  </data>
+  <data name="StatusScanCancelled" xml:space="preserve">
+    <value>扫描已取消。</value>
+  </data>
+  <data name="StatusScanFailedFormat" xml:space="preserve">
+    <value>扫描失败：{0}</value>
+  </data>
+  <data name="StatusScanning" xml:space="preserve">
+    <value>扫描中...</value>
+  </data>
+  <data name="StatusScanningPaused" xml:space="preserve">
+    <value>扫描已暂停。</value>
+  </data>
+  <data name="StatusScanningResumed" xml:space="preserve">
+    <value>扫描已恢复。</value>
+  </data>
+  <data name="SystemPortsLabel" xml:space="preserve">
+    <value>系统端口</value>
+  </data>
+  <data name="TabBlacklist" xml:space="preserve">
+    <value>黑名单</value>
+  </data>
+  <data name="TabGeneral" xml:space="preserve">
+    <value>常规</value>
+  </data>
+  <data name="TabRules" xml:space="preserve">
+    <value>规则</value>
+  </data>
+  <data name="TerminalDirectoryUnavailable" xml:space="preserve">
+    <value>终端目录不可用。</value>
+  </data>
+  <data name="ThemeDark" xml:space="preserve">
+    <value>深色</value>
+  </data>
+  <data name="ThemeLight" xml:space="preserve">
+    <value>浅色</value>
+  </data>
+  <data name="ToolTipHideToTray" xml:space="preserve">
+    <value>隐藏到托盘</value>
+  </data>
+  <data name="ToolTipMinimize" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="ToolTipSettings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="TrayIconText" xml:space="preserve">
+    <value>PortLens</value>
+  </data>
+  <data name="TrayMenuCopyPortSummary" xml:space="preserve">
+    <value>复制端口摘要</value>
+  </data>
+  <data name="TrayMenuExit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="TrayMenuOpenPortLens" xml:space="preserve">
+    <value>打开 PortLens</value>
+  </data>
+  <data name="TrayMenuPauseScanning" xml:space="preserve">
+    <value>暂停扫描</value>
+  </data>
+  <data name="TrayMenuRefresh" xml:space="preserve">
+    <value>刷新</value>
+  </data>
+  <data name="TrayMenuResumeScanning" xml:space="preserve">
+    <value>恢复扫描</value>
+  </data>
+  <data name="TrayMenuSettings" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="TrayStatusLastScanFormat" xml:space="preserve">
+    <value>上次扫描 {0:HH:mm:ss}</value>
+  </data>
+  <data name="TrayStatusNotScanned" xml:space="preserve">
+    <value>尚未扫描</value>
+  </data>
+  <data name="TrayStatusPaused" xml:space="preserve">
+    <value>扫描已暂停</value>
+  </data>
+  <data name="TrayStatusPortsFormat" xml:space="preserve">
+    <value>{0} 个监听端口</value>
+  </data>
+  <data name="TrayStatusServicesFormat" xml:space="preserve">
+    <value>{0} 个开发服务</value>
+  </data>
+  <data name="WindowTitle" xml:space="preserve">
+    <value>PortLens</value>
+  </data>
+</root>

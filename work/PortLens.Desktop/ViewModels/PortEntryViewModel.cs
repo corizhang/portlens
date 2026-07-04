@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using PortLens.Desktop.Properties;
 using PortLens.Models;
 using PortLens.Services;
 
@@ -40,8 +41,12 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
     public string DisplayName => _entry.DisplayName;
     public string FrameworkText => string.IsNullOrWhiteSpace(_entry.Framework) ? _entry.ProcessName : _entry.Framework;
     public string UptimeText => FormatUptime(_entry.Uptime);
-    public string CpuText => _entry.CpuPercent.HasValue ? $"{_entry.CpuPercent:0.0}% CPU" : "CPU ...";
-    public string MemoryText => _entry.MemoryBytes.HasValue ? $"{_entry.MemoryBytes.Value / 1024 / 1024} MB" : "";
+    public string CpuText => _entry.CpuPercent.HasValue
+        ? Resources.GetString("CpuTextFormat", _entry.CpuPercent.Value)
+        : Resources.GetString("CpuTextIdle");
+    public string MemoryText => _entry.MemoryBytes.HasValue
+        ? Resources.GetString("MemoryTextFormat", _entry.MemoryBytes.Value / 1024 / 1024)
+        : "";
     public string AddressText => $"{_entry.Protocol} {_entry.LocalAddress}:{_entry.LocalPort}";
     public string CommandText => _entry.CommandLine ?? _entry.ProcessName;
     public string DirectoryText => _entry.WorkingDirectory ?? _entry.ExecutablePath ?? "";

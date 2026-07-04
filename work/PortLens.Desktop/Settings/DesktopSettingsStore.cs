@@ -44,7 +44,11 @@ internal sealed class DesktopSettingsStore
         }
 
         settings.Version = DesktopSettings.CurrentVersion;
-        settings.EnabledFrameworks = [.. DesktopSettings.DefaultEnabledFrameworks];
+        if (settings.EnabledFrameworks.Count == 0)
+        {
+            settings.EnabledFrameworks = [.. DesktopSettings.DefaultEnabledFrameworks];
+        }
+
         return settings;
     }
 

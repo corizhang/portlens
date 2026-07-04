@@ -11,6 +11,7 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using MaterialDesignThemes.Wpf;
 using PortLens.Desktop.Dialogs;
+using PortLens.Desktop.Properties;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Desktop.ViewModels;
@@ -42,6 +43,9 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         _settings = _settingsStore.Load();
+        AppSettings.Instance.Apply(_settings);
+        ThemeService.ApplyTheme(_settings.Theme);
+        LocalizationManager.Instance.ChangeCulture(_settings.Language);
 
         _viewModel = serviceProvider.GetRequiredService<MainWindowViewModel>();
         _viewModel.RefreshIntervalChanged += (_, _) => UpdateScanTimerInterval();
@@ -94,6 +98,18 @@ public partial class MainWindow : Window
 
     public MainWindowViewModel ViewModel => _viewModel;
 
+    private void DialogHost_DialogOpened(object sender, DialogOpenedEventArgs e)
+    {
+        if (e.Session.Content is FrameworkElement element)
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                element.Focus();
+                Keyboard.Focus(element);
+            }, DispatcherPriority.Render);
+        }
+    }
+
     private void UpdateAppMetrics()
     {
         try
@@ -117,11 +133,11 @@ public partial class MainWindow : Window
 
             _lastAppMetricsAt = now;
             _lastAppCpuTime = totalCpu;
-            _viewModel.AppResourceText = $"CPU {cpuText}  Mem {memoryMb:0} MB";
+            _viewModel.AppResourceText = Properties.Resources.GetString("AppResourceFormat", cpuText, memoryMb.ToString("0", CultureInfo.CurrentCulture));
         }
         catch
         {
-            _viewModel.AppResourceText = "CPU --  Mem --";
+            _viewModel.AppResourceText = Properties.Resources.GetString("AppResourceIdle");
         }
     }
 
@@ -168,6 +184,12 @@ public partial class MainWindow : Window
         _closeToTray = dialogResult.CloseToTray;
         _viewModel.GroupByProject = dialogResult.GroupByProject;
         _viewModel.ShowAppMetrics = dialogResult.ShowAppMetrics;
+        _settings.Theme = dialogResult.Theme;
+        _settings.Language = dialogResult.Language;
+        AppSettings.Instance.ChineseFontFamily = dialogResult.ChineseFontFamily;
+        AppSettings.Instance.EnglishFontFamily = dialogResult.EnglishFontFamily;
+        ThemeService.ApplyTheme(dialogResult.Theme);
+        LocalizationManager.Instance.ChangeCulture(dialogResult.Language);
         _viewModel.ApplyState(new MainWindowState
         {
             ShowSystemPorts = dialogResult.ShowSystemPorts,
@@ -183,7 +205,9 @@ public partial class MainWindow : Window
     private void ToggleScanPaused()
     {
         _isScanPaused = !_isScanPaused;
-        _viewModel.StatusText = _isScanPaused ? "Scanning paused." : "Scanning resumed.";
+        _viewModel.StatusText = _isScanPaused
+            ? Properties.Resources.GetString("StatusScanningPaused")
+            : Properties.Resources.GetString("StatusScanningResumed");
         if (!_isScanPaused)
         {
             _ = _viewModel.RefreshAsync();
@@ -198,18 +222,18 @@ public partial class MainWindow : Window
 
         if (lines.Length == 0)
         {
-            ShowSnackbar("No services to copy.");
+            ShowSnackbar(Properties.Resources.GetString("SnackbarNoServices"));
             return;
         }
 
         try
         {
             System.Windows.Clipboard.SetText(string.Join(Environment.NewLine, lines));
-            ShowSnackbar($"Copied {lines.Length} port summaries.");
+            ShowSnackbar(Properties.Resources.GetString("SnackbarCopiedFormat", lines.Length));
         }
         catch (Exception ex)
         {
-            ShowSnackbar($"Copy failed: {ex.Message}");
+            ShowSnackbar(Properties.Resources.GetString("SnackbarCopyFailedFormat", ex.Message));
         }
     }
 
@@ -333,6 +357,10 @@ public partial class MainWindow : Window
         _settings.CloseToTray = _closeToTray;
         _settings.GroupByProject = state.GroupByProject;
         _settings.ShowAppMetrics = _viewModel.ShowAppMetrics;
+        _settings.Theme = _settings.Theme;
+        _settings.Language = _settings.Language;
+        _settings.ChineseFontFamily = AppSettings.Instance.ChineseFontFamily;
+        _settings.EnglishFontFamily = AppSettings.Instance.EnglishFontFamily;
         _settings.ExcludedPorts = state.ExcludedPorts.ToList();
         _settings.EnabledFrameworks = state.EnabledFrameworks.ToList();
         _settings.IsMaximized = WindowState == WindowState.Maximized;
@@ -359,7 +387,7 @@ public partial class MainWindow : Window
         }
         catch
         {
-            ShowSnackbar("Settings save failed.");
+            ShowSnackbar(Properties.Resources.GetString("SnackbarSettingsSaveFailed"));
         }
     }
 
@@ -417,6 +445,10 @@ public partial class MainWindow : Window
             CloseToTray = _closeToTray,
             GroupByProject = _viewModel.GroupByProject,
             ShowAppMetrics = _viewModel.ShowAppMetrics,
+            Theme = _settings.Theme,
+            Language = _settings.Language,
+            ChineseFontFamily = _settings.ChineseFontFamily,
+            EnglishFontFamily = _settings.EnglishFontFamily,
             ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
             EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
         });
@@ -559,7 +591,7 @@ public partial class MainWindow : Window
 
         _viewModel.AddToBlacklist(entry.LocalPort);
         SaveSettings();
-        ShowSnackbar($"Port {entry.LocalPort} added to blacklist.");
+        ShowSnackbar(Properties.Resources.GetString("SnackbarPortBlacklistedFormat", entry.LocalPort));
     }
 
     private async void KillProcessTreeMenuItem_Click(object sender, RoutedEventArgs e)
