@@ -1,9 +1,9 @@
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Reflection;
 using System.Windows.Data;
 using System.Windows.Threading;
 using Microsoft.Extensions.Logging;
+using PortLens.Desktop.Collections;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 using PortLens.Models;
@@ -15,7 +15,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 {
     private readonly PortScanner _scanner;
     private readonly ILogger<MainWindowViewModel> _logger;
-    private readonly ObservableCollection<PortEntryViewModel> _entries = new();
+    private readonly SuppressibleObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<PortEntryKey, PortEntryViewModel> _entriesByKey = new();
     private readonly object _refreshLock = new();
     private readonly DispatcherTimer _searchDebounceTimer;
@@ -326,32 +326,27 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var liveKeys = entries.Select(entry => entry.Key).ToHashSet();
         foreach (var staleKey in _entriesByKey.Keys.Where(key => !liveKeys.Contains(key)).ToList())
         {
-            var stale = _entriesByKey[staleKey];
-            _entries.Remove(stale);
             _entriesByKey.Remove(staleKey);
         }
 
-        for (var index = 0; index < entries.Count; index++)
+        var ordered = new List<PortEntryViewModel>(entries.Count);
+        foreach (var entry in entries)
         {
-            var entry = entries[index];
             var key = entry.Key;
             if (_entriesByKey.TryGetValue(key, out var existing))
             {
                 existing.Update(entry);
-                var currentIndex = _entries.IndexOf(existing);
-                if (currentIndex >= 0 && currentIndex != index)
-                {
-                    _entries.Move(currentIndex, index);
-                }
+                ordered.Add(existing);
             }
             else
             {
                 var created = new PortEntryViewModel(entry);
                 _entriesByKey[key] = created;
-                _entries.Insert(Math.Min(index, _entries.Count), created);
+                ordered.Add(created);
             }
         }
 
+        _entries.ResetTo(ordered);
         _ = RefreshSearchFilterAsync();
     }
 
