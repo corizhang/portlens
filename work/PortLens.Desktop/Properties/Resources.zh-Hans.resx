@@ -460,4 +460,52 @@
   <data name="WindowTitle" xml:space="preserve">
     <value>PortLens</value>
   </data>
+  <data name="AboutTab" xml:space="preserve">
+    <value>关于</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>PortLens 是一款 Windows 桌面应用，用于监控本地 TCP 监听端口并展示开发服务。</value>
+  </data>
+  <data name="AboutAuthor" xml:space="preserve">
+    <value>作者</value>
+  </data>
+  <data name="AboutAuthorValue" xml:space="preserve">
+    <value>corizhang</value>
+  </data>
+  <data name="AboutProjectUrl" xml:space="preserve">
+    <value>项目地址</value>
+  </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="AboutCheckUpdate" xml:space="preserve">
+    <value>检查更新</value>
+  </data>
+  <data name="AboutUpdateNow" xml:space="preserve">
+    <value>立即更新</value>
+  </data>
+  <data name="AboutChecking" xml:space="preserve">
+    <value>检查中...</value>
+  </data>
+  <data name="AboutLatestVersionFormat" xml:space="preserve">
+    <value>最新版本：v{0}</value>
+  </data>
+  <data name="AboutNoUpdate" xml:space="preserve">
+    <value>当前已是最新版本。</value>
+  </data>
+  <data name="AboutUpdateError" xml:space="preserve">
+    <value>检查更新失败。</value>
+  </data>
+  <data name="UpdateDownloading" xml:space="preserve">
+    <value>正在下载更新...</value>
+  </data>
+  <data name="UpdateDownloadFailed" xml:space="preserve">
+    <value>下载更新失败。</value>
+  </data>
+  <data name="UpdateInstalling" xml:space="preserve">
+    <value>正在安装更新并重启...</value>
+  </data>
+  <data name="UpdateInstallFailed" xml:space="preserve">
+    <value>安装更新失败。</value>
+  </data>
 </root>

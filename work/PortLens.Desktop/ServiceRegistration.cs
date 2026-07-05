@@ -27,6 +27,7 @@ internal static class ServiceRegistration
         services.AddSingleton<MainWindowViewModel>();
         services.AddSingleton<MainWindow>(serviceProvider => new MainWindow(serviceProvider));
         services.AddHttpClient<UpdateCheckService>();
+        services.AddHttpClient<AutoUpdateService>();
 
         return services.BuildServiceProvider();
     }

@@ -460,4 +460,52 @@
   <data name="WindowTitle" xml:space="preserve">
     <value>PortLens</value>
   </data>
+  <data name="AboutTab" xml:space="preserve">
+    <value>About</value>
+  </data>
+  <data name="AboutDescription" xml:space="preserve">
+    <value>PortLens is a Windows-only WPF desktop app that monitors local TCP listening ports and surfaces development services.</value>
+  </data>
+  <data name="AboutAuthor" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="AboutAuthorValue" xml:space="preserve">
+    <value>corizhang</value>
+  </data>
+  <data name="AboutProjectUrl" xml:space="preserve">
+    <value>Project URL</value>
+  </data>
+  <data name="AboutVersion" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="AboutCheckUpdate" xml:space="preserve">
+    <value>Check for updates</value>
+  </data>
+  <data name="AboutUpdateNow" xml:space="preserve">
+    <value>Update now</value>
+  </data>
+  <data name="AboutChecking" xml:space="preserve">
+    <value>Checking...</value>
+  </data>
+  <data name="AboutLatestVersionFormat" xml:space="preserve">
+    <value>Latest version: v{0}</value>
+  </data>
+  <data name="AboutNoUpdate" xml:space="preserve">
+    <value>You are using the latest version.</value>
+  </data>
+  <data name="AboutUpdateError" xml:space="preserve">
+    <value>Failed to check for updates.</value>
+  </data>
+  <data name="UpdateDownloading" xml:space="preserve">
+    <value>Downloading update...</value>
+  </data>
+  <data name="UpdateDownloadFailed" xml:space="preserve">
+    <value>Failed to download update.</value>
+  </data>
+  <data name="UpdateInstalling" xml:space="preserve">
+    <value>Installing update and restarting...</value>
+  </data>
+  <data name="UpdateInstallFailed" xml:space="preserve">
+    <value>Failed to install update.</value>
+  </data>
 </root>

@@ -16,10 +16,16 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
 {
     private readonly List<int> _excludedPorts;
     private readonly Dictionary<string, WpfCheckBox> _frameworkToggles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly UpdateCheckService _updateCheckService;
+    private string _latestVersion = "";
+    private UpdateInfo? _updateInfo;
 
-    internal SettingsDialog(SettingsDialogState state)
+    internal event Action<UpdateInfo>? OnUpdateRequested;
+
+    internal SettingsDialog(SettingsDialogState state, UpdateCheckService updateCheckService)
     {
         InitializeComponent();
+        _updateCheckService = updateCheckService;
         _excludedPorts = state.ExcludedPorts.Order().ToList();
 
         ShowSystemPortsToggle.IsChecked = state.ShowSystemPorts;
@@ -35,6 +41,7 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         BuildFrameworkRules(state.EnabledFrameworks);
         RenderBlacklist();
         UpdateBlacklistTabTitle();
+        InitializeAboutTab(state.Version, state.LatestVersion, state.UpdateInfo);
     }
 
     private void SettingsDialog_Loaded(object sender, RoutedEventArgs e)
@@ -55,10 +62,12 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         GeneralTabContent.Visibility = index == 0 ? Visibility.Visible : Visibility.Collapsed;
         RulesTabContent.Visibility = index == 1 ? Visibility.Visible : Visibility.Collapsed;
         BlacklistTabContent.Visibility = index == 2 ? Visibility.Visible : Visibility.Collapsed;
+        AboutTabContent.Visibility = index == 3 ? Visibility.Visible : Visibility.Collapsed;
 
         UpdateTabButtonState(TabGeneralButton, index == 0);
         UpdateTabButtonState(TabRulesButton, index == 1);
         UpdateTabButtonState(TabBlacklistButton, index == 2);
+        UpdateTabButtonState(TabAboutButton, index == 3);
     }
 
     private void UpdateTabButtonState(WpfButton button, bool isSelected)
@@ -220,6 +229,75 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
     private void UpdateBlacklistTabTitle()
     {
         TabBlacklistButton.Content = Properties.Resources.GetString("BlacklistTabFormat", _excludedPorts.Count);
+    }
+
+    private void InitializeAboutTab(string version, string latestVersion, UpdateInfo? updateInfo)
+    {
+        AboutVersionText.Text = $"v{version}";
+        _latestVersion = latestVersion;
+        _updateInfo = updateInfo;
+        UpdateAboutUpdateStatus();
+    }
+
+    private void UpdateAboutUpdateStatus()
+    {
+        if (_updateInfo is null)
+        {
+            AboutLatestVersionText.Text = string.Empty;
+            AboutUpdateStatusText.Text = string.Empty;
+            CheckUpdateButton.Content = Properties.Resources.GetString("AboutCheckUpdate");
+            CheckUpdateButton.IsEnabled = true;
+            return;
+        }
+
+        AboutLatestVersionText.Text = Properties.Resources.GetString("AboutLatestVersionFormat", _updateInfo.LatestVersion);
+
+        if (_updateInfo.IsUpdateAvailable)
+        {
+            AboutUpdateStatusText.Text = Properties.Resources.GetString("UpdateAvailableFormat", _updateInfo.CurrentVersion, _updateInfo.LatestVersion);
+            CheckUpdateButton.Content = Properties.Resources.GetString("AboutUpdateNow");
+            CheckUpdateButton.IsEnabled = true;
+        }
+        else
+        {
+            AboutUpdateStatusText.Text = Properties.Resources.GetString("AboutNoUpdate");
+            CheckUpdateButton.Content = Properties.Resources.GetString("AboutCheckUpdate");
+            CheckUpdateButton.IsEnabled = true;
+        }
+    }
+
+    private async void CheckUpdateButton_Click(object sender, RoutedEventArgs e)
+    {
+        CheckUpdateButton.IsEnabled = false;
+        AboutUpdateStatusText.Text = Properties.Resources.GetString("AboutChecking");
+
+        try
+        {
+            _updateInfo = await _updateCheckService.CheckAsync();
+            if (_updateInfo is null)
+            {
+                AboutUpdateStatusText.Text = Properties.Resources.GetString("AboutUpdateError");
+                return;
+            }
+
+            UpdateAboutUpdateStatus();
+
+            if (_updateInfo.IsUpdateAvailable)
+            {
+                OnUpdateRequested?.Invoke(_updateInfo);
+            }
+        }
+        catch (Exception ex)
+        {
+            AboutUpdateStatusText.Text = Properties.Resources.GetString("AboutUpdateError");
+            System.Diagnostics.Debug.WriteLine(ex);
+        }
+    }
+
+    private void ProjectUrlHyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
     }
 
     private void ResetButton_Click(object sender, RoutedEventArgs e)

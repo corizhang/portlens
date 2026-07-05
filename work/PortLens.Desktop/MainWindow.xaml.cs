@@ -30,6 +30,7 @@ public partial class MainWindow : Window
     private readonly TrayIconService _trayIcon;
     private readonly PortEntryActionService _entryActions;
     private readonly UpdateCheckService _updateCheckService;
+    private readonly AutoUpdateService _autoUpdateService;
     private readonly MainWindowViewModel _viewModel;
     private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromSeconds(30);
     public SnackbarMessageQueue SnackbarMessageQueue { get; } = new(TimeSpan.FromSeconds(3));
@@ -41,6 +42,7 @@ public partial class MainWindow : Window
     private bool _isExiting;
     private TimeSpan _lastAppCpuTime;
     private DateTimeOffset _lastAppMetricsAt;
+    private readonly ILogger<MainWindow>? _logger;
 
     public MainWindow(IServiceProvider serviceProvider)
     {
@@ -57,6 +59,7 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
 
         _updateCheckService = serviceProvider.GetRequiredService<UpdateCheckService>();
+        _autoUpdateService = serviceProvider.GetRequiredService<AutoUpdateService>();
 
         ApplyPersistedSettings();
 
@@ -179,7 +182,10 @@ public partial class MainWindow : Window
 
     private async Task ShowSettingsDialogAsync()
     {
-        var result = await DialogHost.Show(BuildSettingsDialog(), "RootDialog");
+        var update = await _updateCheckService.CheckAsync();
+        var dialog = (SettingsDialog)BuildSettingsDialog(update);
+        dialog.OnUpdateRequested += info => _ = StartAutoUpdateAsync(info);
+        var result = await DialogHost.Show(dialog, "RootDialog");
         if (result is not SettingsDialogResult dialogResult)
         {
             return;
@@ -450,23 +456,28 @@ public partial class MainWindow : Window
         _settings.IsMaximized = false;
     }
 
-    private FrameworkElement BuildSettingsDialog()
+    private FrameworkElement BuildSettingsDialog(UpdateInfo? updateInfo = null)
     {
-        return new SettingsDialog(new SettingsDialogState
-        {
-            ShowSystemPorts = _viewModel.ShowSystemPorts,
-            RefreshIntervalSeconds = _viewModel.RefreshIntervalSeconds,
-            RememberWindowPlacement = _rememberWindowPlacement,
-            CloseToTray = _closeToTray,
-            GroupByProject = _viewModel.GroupByProject,
-            ShowAppMetrics = _viewModel.ShowAppMetrics,
-            Theme = _settings.Theme,
-            Language = _settings.Language,
-            ChineseFontFamily = _settings.ChineseFontFamily,
-            EnglishFontFamily = _settings.EnglishFontFamily,
-            ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
-            EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
-        });
+        return new SettingsDialog(
+            new SettingsDialogState
+            {
+                ShowSystemPorts = _viewModel.ShowSystemPorts,
+                RefreshIntervalSeconds = _viewModel.RefreshIntervalSeconds,
+                RememberWindowPlacement = _rememberWindowPlacement,
+                CloseToTray = _closeToTray,
+                GroupByProject = _viewModel.GroupByProject,
+                ShowAppMetrics = _viewModel.ShowAppMetrics,
+                Theme = _settings.Theme,
+                Language = _settings.Language,
+                ChineseFontFamily = _settings.ChineseFontFamily,
+                EnglishFontFamily = _settings.EnglishFontFamily,
+                ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
+                EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                Version = _viewModel.AppVersionText.TrimStart('v'),
+                LatestVersion = updateInfo?.LatestVersion ?? "",
+                UpdateInfo = updateInfo
+            },
+            _updateCheckService);
     }
 
     private async void SettingsButton_Click(object sender, RoutedEventArgs e)
@@ -664,7 +675,7 @@ public partial class MainWindow : Window
                 SnackbarMessageQueue.Enqueue(
                     message,
                     Properties.Resources.GetString("UpdateDownloadButton"),
-                    () => Process.Start(new ProcessStartInfo(update.ReleaseUrl) { UseShellExecute = true }));
+                    () => _ = StartAutoUpdateAsync(update));
             });
         }
         catch (Exception ex)
@@ -673,5 +684,28 @@ public partial class MainWindow : Window
         }
     }
 
-    private readonly ILogger<MainWindow>? _logger;
+    private async Task StartAutoUpdateAsync(UpdateInfo updateInfo)
+    {
+        try
+        {
+            ShowSnackbar(Properties.Resources.GetString("UpdateDownloading"));
+            var msiPath = await _autoUpdateService.DownloadMsiAsync(updateInfo);
+            if (string.IsNullOrWhiteSpace(msiPath))
+            {
+                ShowSnackbar(Properties.Resources.GetString("UpdateDownloadFailed"));
+                return;
+            }
+
+            ShowSnackbar(Properties.Resources.GetString("UpdateInstalling"));
+            _autoUpdateService.StartUpdateAndExit(msiPath);
+            _isExiting = true;
+            SaveSettings();
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            _logger?.LogError(ex, "Auto update failed.");
+            ShowSnackbar(Properties.Resources.GetString("UpdateInstallFailed"));
+        }
+    }
 }

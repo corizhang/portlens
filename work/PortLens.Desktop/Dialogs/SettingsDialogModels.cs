@@ -1,5 +1,6 @@
 using System.Windows;
 
+using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 
 namespace PortLens.Desktop.Dialogs;
@@ -35,4 +36,7 @@ internal sealed class SettingsDialogState
     public IReadOnlySet<string> EnabledFrameworks { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
     public string ChineseFontFamily { get; init; } = "";
     public string EnglishFontFamily { get; init; } = "";
+    public string Version { get; init; } = "1.0.0";
+    public string LatestVersion { get; init; } = "";
+    public UpdateInfo? UpdateInfo { get; init; }
 }

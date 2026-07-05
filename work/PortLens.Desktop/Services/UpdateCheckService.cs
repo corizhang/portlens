@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
@@ -34,13 +33,18 @@ public sealed class UpdateCheckService
             var latestVersion = ParseVersion(release.TagName);
             var isNewer = latestVersion > currentVersion;
 
+            var msiUrl = release.Assets?
+                .FirstOrDefault(a => a.Name?.EndsWith(".msi", StringComparison.OrdinalIgnoreCase) == true)?
+                .BrowserDownloadUrl;
+
             return new UpdateInfo(
                 isNewer,
                 release.TagName,
                 release.HtmlUrl,
                 release.Body ?? string.Empty,
                 currentVersion.ToString(3),
-                latestVersion.ToString(3));
+                latestVersion.ToString(3),
+                msiUrl ?? string.Empty);
         }
         catch (Exception ex)
         {
@@ -89,6 +93,18 @@ public sealed class UpdateCheckService
 
         [JsonPropertyName("body")]
         public string? Body { get; set; }
+
+        [JsonPropertyName("assets")]
+        public IReadOnlyList<GitHubReleaseAsset>? Assets { get; set; }
+    }
+
+    private sealed class GitHubReleaseAsset
+    {
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [JsonPropertyName("browser_download_url")]
+        public string? BrowserDownloadUrl { get; set; }
     }
 }
 
@@ -98,4 +114,5 @@ public sealed record UpdateInfo(
     string ReleaseUrl,
     string ReleaseNotes,
     string CurrentVersion,
-    string LatestVersion);
+    string LatestVersion,
+    string MsiDownloadUrl);
