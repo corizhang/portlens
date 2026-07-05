@@ -1,7 +1,11 @@
 param(
     [string] $Configuration = "Release",
     [string] $Runtime = "win-x64",
-    [string] $Output = "outputs\PortLensMaterial"
+    [string] $Output = "outputs\PortLensMaterial",
+    [string] $Version = "",
+    [string] $AssemblyVersion = "",
+    [string] $FileVersion = "",
+    [string] $InformationalVersion = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,10 +18,19 @@ $outputPath = if ([System.IO.Path]::IsPathRooted($Output)) {
     [System.IO.Path]::GetFullPath((Join-Path $root $Output))
 }
 
-dotnet publish $project `
-    -c $Configuration `
-    -r $Runtime `
-    --self-contained false `
-    -o $outputPath
+$publishArgs = @(
+    $project,
+    "-c", $Configuration,
+    "-r", $Runtime,
+    "--self-contained", "false",
+    "-o", $outputPath
+)
+
+if ($Version) { $publishArgs += "-p:Version=$Version" }
+if ($AssemblyVersion) { $publishArgs += "-p:AssemblyVersion=$AssemblyVersion" }
+if ($FileVersion) { $publishArgs += "-p:FileVersion=$FileVersion" }
+if ($InformationalVersion) { $publishArgs += "-p:InformationalVersion=$InformationalVersion" }
+
+& dotnet publish $publishArgs
 
 Write-Host "Published PortLens to $outputPath"

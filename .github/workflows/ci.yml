@@ -50,7 +50,7 @@ jobs:
 
       - name: Publish
         shell: pwsh
-        run: ./scripts/publish.ps1
+        run: ./scripts/publish.ps1 -Version '${{ steps.nbgv.outputs.version }}' -AssemblyVersion '${{ steps.nbgv.outputs.assemblyVersion }}' -FileVersion '${{ steps.nbgv.outputs.assemblyVersion }}' -InformationalVersion '${{ steps.nbgv.outputs.version }}'
 
       - name: Build MSI installer
         shell: pwsh
