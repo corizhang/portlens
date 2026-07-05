@@ -13,6 +13,7 @@ public sealed class LocalizationManager : INotifyPropertyChanged
 
     private LocalizationManager()
     {
+        Resources.Culture = _currentCulture;
     }
 
     public static LocalizationManager Instance => _instance.Value;
@@ -22,15 +23,17 @@ public sealed class LocalizationManager : INotifyPropertyChanged
         get => _currentCulture;
         private set
         {
-            if (Equals(_currentCulture, value))
-            {
-                return;
-            }
-
+            var changed = !Equals(_currentCulture, value);
             _currentCulture = value;
             Resources.Culture = value;
             Thread.CurrentThread.CurrentUICulture = value;
             Thread.CurrentThread.CurrentCulture = value;
+
+            if (!changed)
+            {
+                return;
+            }
+
             OnPropertyChanged(string.Empty);
             CultureChanged?.Invoke(this, EventArgs.Empty);
         }

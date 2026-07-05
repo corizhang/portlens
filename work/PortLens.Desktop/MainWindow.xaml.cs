@@ -378,8 +378,6 @@ public partial class MainWindow : Window
         _settings.CloseToTray = _closeToTray;
         _settings.GroupByProject = state.GroupByProject;
         _settings.ShowAppMetrics = _viewModel.ShowAppMetrics;
-        _settings.Theme = _settings.Theme;
-        _settings.Language = _settings.Language;
         _settings.ChineseFontFamily = AppSettings.Instance.ChineseFontFamily;
         _settings.EnglishFontFamily = AppSettings.Instance.EnglishFontFamily;
         _settings.ExcludedPorts = state.ExcludedPorts.ToList();
