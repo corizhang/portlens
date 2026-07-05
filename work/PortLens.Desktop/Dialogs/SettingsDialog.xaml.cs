@@ -241,18 +241,18 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         var encodedVersion = Uri.EscapeDataString(version);
 
         ProjectUrlBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri($"https://img.shields.io/badge/GitHub-{encodedProject}-blue?logo=github", UriKind.Absolute));
+            new Uri($"https://img.shields.io/badge/GitHub-{encodedProject}-blue.png?logo=github", UriKind.Absolute));
 
         VersionBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri($"https://img.shields.io/badge/{Properties.Resources.GetString("AboutVersion")}-{encodedVersion}-blue", UriKind.Absolute));
+            new Uri($"https://img.shields.io/badge/{Properties.Resources.GetString("AboutVersion")}-{encodedVersion}-blue.png", UriKind.Absolute));
 
         LatestVersionBadge.Source = string.IsNullOrWhiteSpace(latestVersion)
             ? null
             : new System.Windows.Media.Imaging.BitmapImage(
-                new Uri($"https://img.shields.io/github/v/release/corizhang/portlens?label={Properties.Resources.GetString("AboutLatestVersionFormat").Replace("v{0}", "").Trim(':',' ')}&color=green", UriKind.Absolute));
+                new Uri($"https://img.shields.io/github/v/release/corizhang/portlens.png?label={Properties.Resources.GetString("AboutLatestVersionFormat").Replace("v{0}", "").Trim(':',' ')}&color=green", UriKind.Absolute));
 
         LicenseBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri("https://img.shields.io/github/license/corizhang/portlens", UriKind.Absolute));
+            new Uri("https://img.shields.io/github/license/corizhang/portlens.png", UriKind.Absolute));
 
         UpdateAboutUpdateStatus();
     }
