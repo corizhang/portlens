@@ -491,5 +491,106 @@ DI 容器不断创建新的 `MainWindow` 实例，每个实例都调用 `Initial
 
 ---
 
+## 2026-07-05 全面评估：从原型到生产级应用的差距
+
+### 当前状态
+
+PortLens 已具备可用的核心功能：TCP 端口扫描、进程信息展示、框架推断、项目分组、搜索过滤、系统托盘、设置持久化、深色模式、中英文本地化、自动更新、CI/CD 发布。代码结构经过多轮重构，核心逻辑已拆分为单一职责类，UI 采用 MVVM + DI。
+
+但距离真正的生产级桌面应用仍有明显差距，以下从功能、性能、健壮性、架构、测试、生产就绪六个维度分析。
+
+### 1. 功能层面
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| 仅支持 TCP，无 UDP 扫描 | 无法发现 UDP 开发服务（如某些游戏服务器、QUIC、DNS 工具） | 扩展 `NativeTcp` 为 `NativeSocket`，调用 `GetExtendedUdpTable` |
+| 无单实例限制 | 可同时启动多个 PortLens，造成设置/日志竞争和托盘图标重复 | 在 `App.OnStartup` 增加命名 Mutex + IPC 激活已运行实例 |
+| 终止进程无反馈 | 用户无法确认子进程是否全部结束 | `Process.Kill` 后等待 `WaitForExit` 并报告结果 |
+| 自动更新硬编码安装路径 | 自定义或便携版用户更新后无法重启 | 从 `Assembly.GetExecutingAssembly().Location` 获取真实路径 |
+| 无管理员权限提示 | 部分命令行/进程无法读取，终止系统进程失败 | 检测权限并在 UI 提示，或提供“以管理员身份重启”入口 |
+| 缺少导出/导入设置 | 用户换机或重装时配置丢失 | 支持 settings.json 导入导出 |
+| 端口历史与趋势缺失 | 无法观察服务启停、资源变化趋势 | 在本地 SQLite/LiteDB 中保存快照，绘制趋势图 |
+
+### 2. 性能层面
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| 每次刷新枚举所有进程 | `Process.GetProcesses()` 分配大量对象 | 仅对 TCP 表中的 PID 调用 `Process.GetProcessById` |
+| 每次扫描新建大量集合 | 高刷新率下 GC 压力明显 | 使用对象池或增量更新，仅重建变更行 |
+| 命令行读取未批量 | 每个 PID 单独打开句柄 | 研究 `NtQuerySystemInformation` 批量读取或保留更智能缓存 |
+| 字体列表每次重建 | 设置对话框打开慢 | 缓存 `FontService.GetInstalledFontFamilies` 结果 |
+| 搜索每次重建 HashSet | 快速输入时仍有分配 | 复用集合或改用位图/前缀树索引 |
+| 文件日志同步写 | 高频日志阻塞 UI 线程 | 改为 `Channel` + 后台线程批量写入 |
+| 无刷新暂停机制 | 隐藏窗口时仍按最低 30 秒扫描 | 最小化到托盘后可完全暂停，恢复时再刷新 |
+
+### 3. 代码健壮性
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| 多处空 `catch` / 吞异常 | 权限/访问拒绝问题被隐藏 | 记录结构化警告，区分“权限不足”“进程已退出”“超时” |
+| 原生内存读取无边界校验 | 可能读到无效内存或崩溃 | 对 `NtReadVirtualMemory` 返回值做严格校验 |
+| `HttpClient` 无超时与重试 | 网络抖动导致更新检查卡死 | 使用 `IHttpClientFactory` + Polly 重试策略 |
+| 托盘状态字符串解析脆弱 | 本地化或格式变化会破坏 tooltip | 在 ViewModel 中维护独立的 `TrayStatus` 对象 |
+| MSI GUID 为占位符 | 升级逻辑可能异常 | 生成并固定 `UpgradeCode` 与组件 GUID |
+| 自动更新无校验 | 下载的 MSI 可能被篡改 | 发布 SHA256 校验文件并在安装前验证 |
+| 动态 UI 缺少自动化属性 | 屏幕阅读器无法导航 | 为 `TrayIconService`、`KillConfirmationDialog`、黑名单行添加 `AutomationProperties.Name` |
+
+### 4. 架构层面
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| `MainWindow.xaml.cs` 仍过重 | 视图与协调逻辑混杂 | 拆出 `ShellCoordinator` 或 `AppLifecycleService` |
+| `MainWindowViewModel` 职责过多 | 难以单元测试 | 拆分 `SearchService`、`GroupingService`、`StatusBarViewModel` |
+| 核心服务为具体类 | ViewModel 无法脱离 OS 测试 | 引入 `IPortScanner`、`IProcessInspector` 接口 |
+| 大量 UI 在代码中构建 | 设计器、本地化、可访问性差 | 将 `TrayIconService`、`KillConfirmationDialog` 改为 XAML UserControl |
+| `ServiceRegistration` 把 `MainWindow` 注册进 DI | 容器与视图生命周期耦合 | 使用工厂模式或 `App` 显式创建窗口 |
+
+### 5. 测试层面
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| 仅覆盖过滤/推断逻辑 | 核心扫描、进程读取、ViewModel 均无测试 | 为 `PortScanner`、`ProcessInspector`、`ProcessCommandLineReader`、`CpuSampler` 增加可测试抽象与单元测试 |
+| 无 UI/集成测试 | 手动 smoke test 容易遗漏回归 | 引入 FlaUI/Appium 对设置、搜索、托盘做自动化断言 |
+| 无性能基准 | 优化无法量化 | 增加 BenchmarkDotNet 基准，监控扫描耗时与内存分配 |
+
+### 6. 生产就绪差距
+
+| 问题 | 影响 | 建议 |
+|------|------|------|
+| 无崩溃报告与遥测 | 线上问题难以定位 | 集成 Sentry、AppCenter 或 Windows Error Reporting |
+| 无代码签名 | SmartScreen 拦截，用户信任度低 | 申请证书并对 EXE/MSI 签名 |
+| 仅支持两种语言 | 国际化用户受限 | 建立社区翻译流程，增加更多 resx |
+| 无可访问性声明 | 企业/政府场景不可用 | 补齐自动化属性、高对比度支持、键盘导航 |
+| 无离线文档/帮助 | 新用户上手成本高 | 增加内置快捷键说明、工具提示、FAQ 链接 |
+| CI 只跑 Release | 某些问题在 Debug 下更早暴露 | PR 工作流同时跑 Debug + Release |
+
+### 优先级建议
+
+**高优先级（影响可用性或安全）**
+1. 单实例限制
+2. 自动更新路径与 MSI 校验
+3. 稳定的 MSI GUID 与升级策略
+4. 异常分类与日志增强
+5. HttpClient 超时/重试
+
+**中优先级（体验与维护）**
+1. UDP 端口支持
+2. 增量刷新与性能基准
+3. 核心接口抽象与 ViewModel 拆分
+4. 自动化 UI 测试
+5. 导出/导入设置
+
+**低优先级（锦上添花）**
+1. 更多语言
+2. 历史趋势图
+3. 崩溃遥测
+4. 代码签名
+
+### 结论
+
+PortLens 在功能上已经能满足个人开发者的日常需求，代码结构也比初期清晰很多。但要成为可广泛分发的生产级应用，还需要在**安装升级安全、权限处理、异常可观测性、UI 可访问性、自动化测试**五个方面补齐短板。建议先完成高优先级项，再逐步向中优先级扩展。
+
+---
+
 *每执行2次查看/浏览器/搜索操作后更新此文件*
 *防止视觉信息丢失*

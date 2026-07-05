@@ -158,13 +158,16 @@
 - [x] 构建/测试/发布/提交/tag
 - **状态：** complete
 
-### 阶段 R2：发布 v1.0.3
-- [x] 修复 shields.io SVG 徽章在 WPF 中无法显示的问题，改用 PNG
-- [x] 构建/提交/tag/发布
+### 阶段 R3：添加 MIT 许可证、更新 README、全面评估生产就绪差距
+- [x] 添加 MIT LICENSE 文件
+- [x] 更新 README.md 至最新功能状态
+- [x] 全面分析功能、性能、健壮性、架构、测试、生产就绪差距
+- [x] 将分析结果写入 findings.md
+- [x] 构建/测试/提交/推送
 - **状态：** complete
 
 ## 当前阶段
-阶段 R2 已完成
+阶段 R3 已完成
 
 1. 是否保留当前的 WPF 代码隐藏风格，还是全面迁移到 MVVM？
 2. 是否引入第三方 DI 容器，还是使用轻量级的 `Microsoft.Extensions.DependencyInjection`？

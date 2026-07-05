@@ -424,5 +424,29 @@
 | 构建 | `dotnet build PortLens.sln` | 成功 | 成功，0 警告 0 错误 | 通过 |
 | GitHub Release | `curl` 检查 v1.0.3 资产 | 包含 MSI 与 ZIP | 两个资产均存在且大小正确 | 通过 |
 
+### 阶段 R3：添加 MIT 许可证、更新 README、全面评估生产就绪差距
+- **状态：** complete
+- **开始时间：** 2026-07-05
+- **完成时间：** 2026-07-05
+- 执行的操作：
+  - 在仓库根目录新增 `LICENSE` 文件，采用 MIT 许可证
+  - 重写 `README.md`：补充下载链接、shields.io 徽章、最新功能（深色模式、本地化、自动更新、分组等）、环境要求、项目结构、CI/CD、贡献指南
+  - 使用 Explore agent 全面扫描代码库，从功能、性能、健壮性、架构、测试、生产就绪六个维度整理优化建议
+  - 将分析结果写入 `findings.md`
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证（55 个测试通过）
+  - 提交并推送至 GitHub 与 Gitea
+- 创建/修改的文件：
+  - `LICENSE`
+  - `README.md`
+  - `findings.md`
+
+### 测试结果
+
+| 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+|------|------|---------|---------|------|
+| 构建 | `dotnet build PortLens.sln` | 成功 | 成功，0 警告 0 错误 | 通过 |
+| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 55 个测试通过，0 失败 | 通过 |
+
 ---
 *每个阶段完成后或遇到错误时更新此文件*
