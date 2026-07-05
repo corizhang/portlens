@@ -150,8 +150,16 @@
 - [x] 构建/测试/发布/smoke test/提交
 - **状态：** complete
 
+### 阶段 R1：发布 v1.0.2
+- [x] 移除 Nerdbank.GitVersioning，改用 git tag 驱动版本号
+- [x] 更新 CI 工作流自动解析 tag 版本并发布 Release
+- [x] About 页面添加 shields.io 风格徽章
+- [x] 修复 MSI 安装包未保留 `zh-Hans` 卫星资源目录导致中文不显示的问题
+- [x] 构建/测试/发布/提交/tag
+- **状态：** complete
+
 ## 当前阶段
-阶段 D5 已完成
+阶段 R1 已完成
 
 1. 是否保留当前的 WPF 代码隐藏风格，还是全面迁移到 MVVM？
 2. 是否引入第三方 DI 容器，还是使用轻量级的 `Microsoft.Extensions.DependencyInjection`？

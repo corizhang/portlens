@@ -361,5 +361,47 @@
 | 我学到了什么？ | 见 findings.md |
 | 我做了什么？ | 已完成阶段 1 至阶段 9，以及阶段 D1/D2/D4/D3，均已独立提交并通过验证 |
 
+## 会话：2026-07-05
+
+### 阶段 R1：发布 v1.0.2
+- **状态：** complete
+- **开始时间：** 2026-07-05
+- **完成时间：** 2026-07-05
+- 执行的操作：
+  - 移除 Nerdbank.GitVersioning，改用 git tag 驱动版本号
+  - 更新 CI 工作流，在 push tag 时自动解析版本并构建/发布 Release
+  - 在设置 About 页面添加 shields.io 风格徽章（项目地址、版本、最新版本、许可证）
+  - 修复简体中文在安装版中仍显示英文的问题：MSI 生成脚本未保留 `zh-Hans` 卫星资源目录结构
+  - 运行 `dotnet build PortLens.sln` 验证
+  - 运行 `dotnet test PortLens.sln` 验证
+  - 运行 `scripts/publish.ps1` 验证发布
+  - 构建 MSI 并反编译验证 `zh-Hans/PortLens.resources.dll` 位于正确子目录
+  - 提交并推送至 GitHub 与 Gitea
+  - 删除旧 v1.0.1 tag，创建并推送 v1.0.2 tag
+  - GitHub Actions 工作流成功完成，Release v1.0.2 已生成并包含 MSI 与 ZIP 资产
+- 创建/修改的文件：
+  - `.github/workflows/ci.yml`
+  - `global.json`
+  - `scripts/generate-wix-files.ps1`
+  - `version.json`（已删除）
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml.cs`
+
+### 测试结果
+
+| 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+|------|------|---------|---------|------|
+| 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 55 个测试通过，0 失败 | 通过 |
+| 发布 exe 启动 | 双击 `outputs/PortLensMaterial/PortLens.exe` | 应用窗口正常显示 | 应用窗口正常显示 | 通过 |
+| 语言切换 | 安装版运行后切换为简体中文 | 设置页面显示中文 | 中文正常显示 | 通过 |
+| GitHub Release | `curl` 检查 v1.0.2 资产 | 包含 MSI 与 ZIP | 两个资产均存在且大小正确 | 通过 |
+
+### 错误日志
+
+| 时间戳 | 错误 | 尝试次数 | 解决方案 |
+|--------|------|---------|---------|
+| 2026-07-05 | 安装版切换语言无效 | 1 | 修复 `generate-wix-files.ps1` 保留 `zh-Hans` 子目录结构 |
+| 2026-07-05 | Gitea 首次推送认证失败 | 1 | 重试后成功（远端未提供具体原因） |
+
 ---
 *每个阶段完成后或遇到错误时更新此文件*
