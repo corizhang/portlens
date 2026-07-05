@@ -462,7 +462,15 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ? informationalVersion
             : assembly.GetName().Version?.ToString(3);
 
-        return string.IsNullOrWhiteSpace(version) ? "1.0.0" : version.Split('+')[0];
+        if (string.IsNullOrWhiteSpace(version))
+        {
+            return "1.0.0";
+        }
+
+        var cleanVersion = version.Split('+')[0];
+        return Version.TryParse(cleanVersion, out var parsed)
+            ? parsed.ToString(3)
+            : cleanVersion;
     }
 }
 

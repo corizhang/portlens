@@ -43,7 +43,7 @@ jobs:
         run: dotnet restore PortLens.sln
 
       - name: Build
-        run: dotnet build PortLens.sln --no-restore --configuration Release -p:Version='${{ steps.nbgv.outputs.version }}' -p:AssemblyVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:FileVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:InformationalVersion='${{ steps.nbgv.outputs.informationalVersion }}'
+        run: dotnet build PortLens.sln --no-restore --configuration Release -p:Version='${{ steps.nbgv.outputs.version }}' -p:AssemblyVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:FileVersion='${{ steps.nbgv.outputs.assemblyVersion }}' -p:InformationalVersion='${{ steps.nbgv.outputs.version }}'
 
       - name: Test
         run: dotnet test PortLens.sln --no-build --configuration Release

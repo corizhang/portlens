@@ -61,7 +61,7 @@ public sealed class UpdateCheckService
             var versionPart = informational.Split('+')[0];
             if (Version.TryParse(versionPart, out var parsed))
             {
-                return parsed;
+                return new Version(parsed.Major, parsed.Minor, Math.Max(parsed.Build, 0));
             }
         }
 
