@@ -403,5 +403,26 @@
 | 2026-07-05 | 安装版切换语言无效 | 1 | 修复 `generate-wix-files.ps1` 保留 `zh-Hans` 子目录结构 |
 | 2026-07-05 | Gitea 首次推送认证失败 | 1 | 重试后成功（远端未提供具体原因） |
 
+### 阶段 R2：发布 v1.0.3（shields.io PNG 修复）
+- **状态：** complete
+- **开始时间：** 2026-07-05
+- **完成时间：** 2026-07-05
+- 执行的操作：
+  - 发现 v1.0.2 About 页 shields.io 徽章未显示：WPF `BitmapImage` 不支持 SVG
+  - 将所有 shields.io URL 改为 `.png` 格式
+  - 构建验证
+  - 提交并推送至 GitHub 与 Gitea
+  - 创建并推送 v1.0.3 tag
+  - GitHub Actions 工作流成功完成，Release v1.0.3 已生成
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml.cs`
+
+### 测试结果
+
+| 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+|------|------|---------|---------|------|
+| 构建 | `dotnet build PortLens.sln` | 成功 | 成功，0 警告 0 错误 | 通过 |
+| GitHub Release | `curl` 检查 v1.0.3 资产 | 包含 MSI 与 ZIP | 两个资产均存在且大小正确 | 通过 |
+
 ---
 *每个阶段完成后或遇到错误时更新此文件*
