@@ -14,34 +14,69 @@ $files = Get-ChildItem -Path $publishFullName -File -Recurse |
     Where-Object { $_.Extension -notin @('.pdb', '.deps.json') } |
     Sort-Object FullName
 
-$components = [System.Text.StringBuilder]::new()
+$directoryIds = @{
+    "" = "INSTALLFOLDER"
+}
+
+$directoryElements = [System.Text.StringBuilder]::new()
+$componentElements = [System.Text.StringBuilder]::new()
 $index = 0
+
+function Get-SafeId($value) {
+    $safe = ($value -replace '[\\/]', '_') -replace '[^A-Za-z0-9_.]', '_'
+    if ($safe -match '^\d') { $safe = "_" + $safe }
+    return $safe
+}
 
 foreach ($file in $files) {
     $relativePath = $file.FullName.Substring($publishFullName.Length).TrimStart('\', '/')
+    $relativeDir = [System.IO.Path]::GetDirectoryName($relativePath) -replace '\\', '/'
+    $fileName = [System.IO.Path]::GetFileName($relativePath)
 
-    $safeId = ($relativePath -replace '[\\/]', '_') -replace '[^A-Za-z0-9_.]', '_'
-    if ($safeId -match '^\d') { $safeId = "_" + $safeId }
+    if (-not $directoryIds.ContainsKey($relativeDir)) {
+        $dirParts = $relativeDir -split '/'
+        $currentPath = ""
+        for ($i = 0; $i -lt $dirParts.Count; $i++) {
+            $parentPath = $currentPath
+            if ($currentPath -eq "") {
+                $currentPath = $dirParts[$i]
+            }
+            else {
+                $currentPath = "$currentPath/$($dirParts[$i])"
+            }
+
+            if (-not $directoryIds.ContainsKey($currentPath)) {
+                $dirId = "Dir_$(Get-SafeId $currentPath)"
+                $directoryIds[$currentPath] = $dirId
+                $parentId = $directoryIds[$parentPath]
+                [void]$directoryElements.AppendLine("    <DirectoryRef Id=`"$parentId`">")
+                [void]$directoryElements.AppendLine("      <Directory Id=`"$dirId`" Name=`"$($dirParts[$i])`" />")
+                [void]$directoryElements.AppendLine("    </DirectoryRef>")
+            }
+        }
+    }
+
+    $directoryId = $directoryIds[$relativeDir]
     $componentId = "FileComponent_$index"
     $guid = [Guid]::NewGuid().ToString()
+    $safeFileId = Get-SafeId $relativePath
 
-    $line1 = "      <Component Id=`"$componentId`" Guid=`"$guid`">"
-    $line2 = "        <File Id=`"$safeId`" Source=`"`$(var.PublishDir)$relativePath`" KeyPath=`"yes`" />"
-    $line3 = "      </Component>"
-
-    [void]$components.AppendLine($line1)
-    [void]$components.AppendLine($line2)
-    [void]$components.AppendLine($line3)
+    [void]$componentElements.AppendLine("      <Component Id=`"$componentId`" Guid=`"$guid`" Directory=`"$directoryId`">")
+    [void]$componentElements.AppendLine("        <File Id=`"$safeFileId`" Source=`"`$(var.PublishDir)$relativePath`" KeyPath=`"yes`" />")
+    [void]$componentElements.AppendLine("      </Component>")
 
     $index++
 }
 
-$componentsText = $components.ToString().TrimEnd()
+$directoriesText = $directoryElements.ToString().TrimEnd()
+$componentsText = $componentElements.ToString().TrimEnd()
 
 $wxs = @"
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
   <Fragment>
+$directoriesText
+
     <ComponentGroup Id="PublishedFiles" Directory="INSTALLFOLDER">
 $componentsText
     </ComponentGroup>

@@ -236,6 +236,24 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         AboutVersionText.Text = $"v{version}";
         _latestVersion = latestVersion;
         _updateInfo = updateInfo;
+
+        var encodedProject = Uri.EscapeDataString("corizhang/portlens");
+        var encodedVersion = Uri.EscapeDataString(version);
+
+        ProjectUrlBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
+            new Uri($"https://img.shields.io/badge/GitHub-{encodedProject}-blue?logo=github", UriKind.Absolute));
+
+        VersionBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
+            new Uri($"https://img.shields.io/badge/{Properties.Resources.GetString("AboutVersion")}-{encodedVersion}-blue", UriKind.Absolute));
+
+        LatestVersionBadge.Source = string.IsNullOrWhiteSpace(latestVersion)
+            ? null
+            : new System.Windows.Media.Imaging.BitmapImage(
+                new Uri($"https://img.shields.io/github/v/release/corizhang/portlens?label={Properties.Resources.GetString("AboutLatestVersionFormat").Replace("v{0}", "").Trim(':',' ')}&color=green", UriKind.Absolute));
+
+        LicenseBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
+            new Uri("https://img.shields.io/github/license/corizhang/portlens", UriKind.Absolute));
+
         UpdateAboutUpdateStatus();
     }
 
@@ -297,6 +315,30 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
     private void ProjectUrlHyperlink_RequestNavigate(object sender, System.Windows.Navigation.RequestNavigateEventArgs e)
     {
         System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
+        e.Handled = true;
+    }
+
+    private void ProjectUrlBadge_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/corizhang/portlens") { UseShellExecute = true });
+        e.Handled = true;
+    }
+
+    private void VersionBadge_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/corizhang/portlens/releases") { UseShellExecute = true });
+        e.Handled = true;
+    }
+
+    private void LatestVersionBadge_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/corizhang/portlens/releases/latest") { UseShellExecute = true });
+        e.Handled = true;
+    }
+
+    private void LicenseBadge_Click(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://github.com/corizhang/portlens/blob/master/LICENSE") { UseShellExecute = true });
         e.Handled = true;
     }
 

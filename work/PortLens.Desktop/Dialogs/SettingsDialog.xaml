@@ -336,6 +336,23 @@
                                        FontSize="13"
                                        Margin="0,0,0,20" />
 
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,20">
+                                <Image x:Name="VersionBadge"
+                                       Height="20"
+                                       Margin="0,0,8,0"
+                                       Cursor="Hand"
+                                       MouseLeftButtonUp="VersionBadge_Click" />
+                                <Image x:Name="LatestVersionBadge"
+                                       Height="20"
+                                       Margin="0,0,8,0"
+                                       Cursor="Hand"
+                                       MouseLeftButtonUp="LatestVersionBadge_Click" />
+                                <Image x:Name="LicenseBadge"
+                                       Height="20"
+                                       Cursor="Hand"
+                                       MouseLeftButtonUp="LicenseBadge_Click" />
+                            </StackPanel>
+
                             <Grid Margin="0,0,0,12">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="120" />
@@ -360,13 +377,12 @@
                                            Text="{loc:Loc Key=AboutProjectUrl}"
                                            Foreground="{DynamicResource PortLensSubtitleBrush}"
                                            FontSize="13" />
-                                <TextBlock Grid.Column="1">
-                                    <Hyperlink NavigateUri="https://github.com/corizhang/portlens"
-                                               RequestNavigate="ProjectUrlHyperlink_RequestNavigate"
-                                               Foreground="{DynamicResource PortLensBrandBrush}">
-                                        https://github.com/corizhang/portlens
-                                    </Hyperlink>
-                                </TextBlock>
+                                <Image Grid.Column="1"
+                                       x:Name="ProjectUrlBadge"
+                                       Height="20"
+                                       HorizontalAlignment="Left"
+                                       Cursor="Hand"
+                                       MouseLeftButtonUp="ProjectUrlBadge_Click" />
                             </Grid>
 
                             <Grid Margin="0,0,0,20">
@@ -379,7 +395,8 @@
                                            Foreground="{DynamicResource PortLensSubtitleBrush}"
                                            FontSize="13" />
                                 <StackPanel Grid.Column="1"
-                                            Orientation="Horizontal">
+                                            Orientation="Horizontal"
+                                            VerticalAlignment="Center">
                                     <TextBlock x:Name="AboutVersionText"
                                                Foreground="{DynamicResource PortLensTextBrush}"
                                                FontSize="13"
