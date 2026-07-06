@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Text.RegularExpressions;
 using PortLens.Models;
 
 namespace PortLens.Services;
@@ -24,7 +23,7 @@ public static class FrameworkDetector
 
         if (entry.ProcessName.Contains("java", StringComparison.OrdinalIgnoreCase)
             && entry.CommandLine is { Length: > 0 }
-            && IsSpringBootJarCommandLine(entry.CommandLine))
+            && IsSpringBootJarCommandLine(entry.CommandLine, entry.WorkingDirectory))
         {
             return "Spring";
         }
@@ -37,16 +36,17 @@ public static class FrameworkDetector
         return needles.Any(needle => text.Contains(needle, StringComparison.Ordinal));
     }
 
-    private static bool IsSpringBootJarCommandLine(string commandLine)
+    private static bool IsSpringBootJarCommandLine(string commandLine, string? workingDirectory)
     {
         foreach (var jarPath in ExtractJarPaths(commandLine))
         {
-            if (string.IsNullOrWhiteSpace(jarPath) || !File.Exists(jarPath))
+            var absolutePath = ResolveJarPath(jarPath, workingDirectory);
+            if (string.IsNullOrWhiteSpace(absolutePath) || !File.Exists(absolutePath))
             {
                 continue;
             }
 
-            if (JarManifestContainsSpringBootLauncher(jarPath))
+            if (JarManifestContainsSpringBootLauncher(absolutePath))
             {
                 return true;
             }
@@ -55,15 +55,32 @@ public static class FrameworkDetector
         return false;
     }
 
+    private static string? ResolveJarPath(string jarPath, string? workingDirectory)
+    {
+        if (Path.IsPathRooted(jarPath))
+        {
+            return jarPath;
+        }
+
+        if (!string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            var candidate = Path.GetFullPath(Path.Combine(workingDirectory, jarPath));
+            if (File.Exists(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
     private static IEnumerable<string> ExtractJarPaths(string commandLine)
     {
         foreach (var token in commandLine.Split([' '], StringSplitOptions.RemoveEmptyEntries))
         {
             var trimmed = token.Trim().Trim(QuoteChars);
             if (trimmed.Length > 4
-                && trimmed.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)
-                && trimmed.Length > 2
-                && trimmed[1] == ':')
+                && trimmed.EndsWith(".jar", StringComparison.OrdinalIgnoreCase))
             {
                 yield return trimmed;
             }

@@ -62,15 +62,41 @@ public class FrameworkDetectorTests
         Assert.Equal(string.Empty, actual);
     }
 
+    [Fact]
+    public void InferFramework_RelativeSpringBootJarWithWorkingDirectory_ReturnsSpring()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"portlens-rel-{Guid.NewGuid()}");
+        var jarDir = Path.Combine(tempDir, "mall-backend", "mall-server-web", "target");
+        Directory.CreateDirectory(jarDir);
+        var jarPath = Path.Combine(jarDir, "mall-server-web-0.0.1-SNAPSHOT.jar");
+        CreateFakeSpringBootJarAt(jarPath);
+
+        var entry = new PortEntry
+        {
+            ProcessName = "java",
+            CommandLine = "java -jar mall-backend/mall-server-web/target/mall-server-web-0.0.1-SNAPSHOT.jar",
+            WorkingDirectory = tempDir
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry);
+
+        Assert.Equal("Spring", actual);
+    }
+
     private static string CreateFakeSpringBootJar()
     {
         var path = Path.Combine(Path.GetTempPath(), $"portlens-spring-{Guid.NewGuid()}.jar");
+        CreateFakeSpringBootJarAt(path);
+        return path;
+    }
+
+    private static void CreateFakeSpringBootJarAt(string path)
+    {
         using var stream = File.Create(path);
         using var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create);
         var entry = zip.CreateEntry("META-INF/MANIFEST.MF");
         using var writer = new StreamWriter(entry.Open());
         writer.WriteLine("Main-Class: org.springframework.boot.loader.launch.JarLauncher");
-        return path;
     }
 
     private static string CreateFakePlainJar()

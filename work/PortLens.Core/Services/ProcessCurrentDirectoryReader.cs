@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Management;
 using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,23 @@ public sealed class ProcessCurrentDirectoryReader
     }
 
     public string? Read(int processId)
+    {
+        var pebDirectory = ReadFromPeb(processId);
+        if (!string.IsNullOrWhiteSpace(pebDirectory) && !IsJreBinDirectory(pebDirectory))
+        {
+            return pebDirectory;
+        }
+
+        var wmiDirectory = ReadFromWmi(processId);
+        if (!string.IsNullOrWhiteSpace(wmiDirectory) && Directory.Exists(wmiDirectory) && !IsJreBinDirectory(wmiDirectory))
+        {
+            return wmiDirectory;
+        }
+
+        return pebDirectory;
+    }
+
+    private string? ReadFromPeb(int processId)
     {
         if (IntPtr.Size != 8)
         {
@@ -68,13 +86,48 @@ public sealed class ProcessCurrentDirectoryReader
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to read current directory for process {ProcessId}.", processId);
+            _logger.LogWarning(ex, "Failed to read current directory from PEB for process {ProcessId}.", processId);
             return null;
         }
         finally
         {
             CloseHandle(handle);
         }
+    }
+
+    private static string? ReadFromWmi(int processId)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                $"SELECT WorkingDirectory FROM Win32_Process WHERE ProcessId = {processId}");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var value = obj["WorkingDirectory"]?.ToString();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value;
+                }
+            }
+        }
+        catch
+        {
+            // WMI may be unavailable or restricted; fall back to PEB value.
+        }
+
+        return null;
+    }
+
+    private static bool IsJreBinDirectory(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        var lowered = path.Replace('/', '\\').ToLowerInvariant();
+        return lowered.EndsWith(@"\bin", StringComparison.Ordinal)
+            && (lowered.Contains(@"\jdk", StringComparison.Ordinal) || lowered.Contains(@"\jre", StringComparison.Ordinal));
     }
 
     private static ushort ReadUInt16(IntPtr handle, IntPtr address)
