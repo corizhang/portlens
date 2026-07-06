@@ -31,4 +31,56 @@ public class FrameworkDetectorTests
 
         Assert.Equal(expected, actual);
     }
+
+    [Fact]
+    public void InferFramework_SpringBootJar_ReturnsSpring()
+    {
+        var jarPath = CreateFakeSpringBootJar();
+        var entry = new PortEntry
+        {
+            ProcessName = "java",
+            CommandLine = $"java -jar \"{jarPath}\""
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry);
+
+        Assert.Equal("Spring", actual);
+    }
+
+    [Fact]
+    public void InferFramework_NonSpringBootJar_ReturnsEmpty()
+    {
+        var jarPath = CreateFakePlainJar();
+        var entry = new PortEntry
+        {
+            ProcessName = "java",
+            CommandLine = $"java -jar \"{jarPath}\""
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry);
+
+        Assert.Equal(string.Empty, actual);
+    }
+
+    private static string CreateFakeSpringBootJar()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"portlens-spring-{Guid.NewGuid()}.jar");
+        using var stream = File.Create(path);
+        using var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create);
+        var entry = zip.CreateEntry("META-INF/MANIFEST.MF");
+        using var writer = new StreamWriter(entry.Open());
+        writer.WriteLine("Main-Class: org.springframework.boot.loader.launch.JarLauncher");
+        return path;
+    }
+
+    private static string CreateFakePlainJar()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"portlens-plain-{Guid.NewGuid()}.jar");
+        using var stream = File.Create(path);
+        using var zip = new System.IO.Compression.ZipArchive(stream, System.IO.Compression.ZipArchiveMode.Create);
+        var entry = zip.CreateEntry("META-INF/MANIFEST.MF");
+        using var writer = new StreamWriter(entry.Open());
+        writer.WriteLine("Main-Class: com.example.Main");
+        return path;
+    }
 }
