@@ -862,3 +862,36 @@
   - 该修复为回归修复，不包含在 v1.0.9 tag 中；如需作为正式版本发布，需要新建 tag（如 v1.0.10）
 - 下一步：
   - 请手动运行发布后的 `PortLens.exe` 验证列表在多次扫描间隔中是否仍抖动，特别是滚动到中间位置后观察
+
+### 问题修复：扫描时卡片列表抖动（二次修复）
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 问题描述：
+  - 首次修复后，扫描时卡片列表仍然存在抖动
+- 根因分析：
+  - `PortEntryViewModel.Update` 每次扫描都会触发 ~17 个 `PropertyChanged` 事件，无论属性值是否变化
+  - `RefreshSearchFilterAsync` 每次扫描都会调用 `FilteredEntries.Refresh()`，即使搜索条件未变、匹配集合未变
+  - `PropertyChanged` 风暴 + `CollectionView.Refresh()` 共同导致虚拟化面板重测重排，产生视觉抖动
+- 执行的操作：
+  - 重写 `PortEntryViewModel.Update`：在 `RecalculateDerivedValues` 前保存所有旧值，之后逐属性比较，只有值变化时才触发 `PropertyChanged`
+  - 修改 `MainWindowViewModel.RefreshSearchFilterAsync`：比较新旧 `_matchingKeys`，只有匹配集合变化时才调用 `FilteredEntries.Refresh()`
+  - 运行 `dotnet build PortLens.sln --configuration Release` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln --configuration Release` 验证（74 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 重新发布本地 `PortLens.exe`
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | Release 构建 | `dotnet build PortLens.sln --configuration Release` | 成功 | 0 警告 0 错误 | 通过 |
+  | Release 单元测试 | `dotnet test PortLens.sln --configuration Release` | 全部通过 | 74 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=26028，Children=0，Smoke test passed | 通过 |
+- 备注：
+  - 该修复为回归修复，不包含在 v1.0.9 tag 中
+- 下一步：
+  - 手动运行 `outputs/PortLensMaterial/PortLens.exe`，滚动到列表中间，等待多次扫描刷新，确认抖动是否消除
+  - 如果仍抖动，考虑进一步减少 CPU/内存/运行时间的刷新频率或引入阈值
