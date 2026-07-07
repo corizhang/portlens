@@ -17,7 +17,9 @@ internal static class ServiceRegistration
             "PortLens",
             "logs",
             $"portlens-{DateTimeOffset.Now:yyyyMMdd}.log");
-        services.AddLogging(builder => builder.AddProvider(new FileLoggerProvider(logPath)));
+        var fileLoggerProvider = new FileLoggerProvider(logPath);
+        services.AddSingleton(fileLoggerProvider);
+        services.AddLogging(builder => builder.AddProvider(fileLoggerProvider));
 
         services.AddSingleton<IProcessCommandLineReader, ProcessCommandLineReader>();
         services.AddSingleton<ProcessCurrentDirectoryReader>();

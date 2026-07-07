@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 P0-2：`FileLogger` 异步化（进行中）
+阶段 P1-1：`HttpClient` 超时与重试策略（进行中）
 
 ## 各阶段
 
@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P0-2：`FileLogger` 异步化（进行中）
+阶段 P1-1：`HttpClient` 超时与重试策略（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -182,11 +182,11 @@
 - **状态：** complete
 
 #### P0-2：`FileLogger` 异步化
-- [ ] 引入 `System.Threading.Channels.Channel<string>`
-- [ ] 新增后台写入线程，批量 flush（1s 或 100 条阈值）
-- [ ] `AppDomain.UnhandledException` 中强制 flush，避免崩溃丢日志
-- [ ] 构建/测试/发布/smoke test/提交
-- **状态：** in_progress
+- [x] 引入 `System.Threading.Channels.Channel<string>`
+- [x] 新增后台写入线程，批量 flush（1s 或 100 条阈值）
+- [x] `AppDomain.UnhandledException` 中强制 flush，避免崩溃丢日志
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
 
 ### 阶段 P1：关键 I/O 与枚举优化（中-高优先级）
 
@@ -195,7 +195,7 @@
 - [ ] 引入 Polly 重试策略：更新检查指数退避 2 次，下载重试 1 次
 - [ ] 确保所有网络调用传播 `CancellationToken`
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 #### P1-2：进程快照按需枚举或原生化
 - [ ] 评估 `Process.GetProcessById(livePids)` 方案 vs 复用 P0-1 原生快照

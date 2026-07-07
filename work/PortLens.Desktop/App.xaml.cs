@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PortLens.Desktop.Services;
 
 namespace PortLens.Desktop;
 
@@ -27,6 +28,7 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        FlushLogs();
         _serviceProvider?.Dispose();
         base.OnExit(e);
     }
@@ -43,6 +45,8 @@ public partial class App : System.Windows.Application
         {
             LogException(ex, "AppDomain unhandled exception");
         }
+
+        FlushLogs();
     }
 
     private void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
@@ -57,6 +61,19 @@ public partial class App : System.Windows.Application
         {
             var logger = _serviceProvider?.GetService<ILogger<App>>();
             logger?.LogError(exception, message);
+        }
+        catch
+        {
+            // Logging must not throw during shutdown.
+        }
+    }
+
+    private void FlushLogs()
+    {
+        try
+        {
+            var provider = _serviceProvider?.GetService<FileLoggerProvider>();
+            provider?.Flush(TimeSpan.FromSeconds(2));
         }
         catch
         {
