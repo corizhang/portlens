@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
@@ -21,7 +20,6 @@ public sealed class ProcessCommandLineReader : IProcessCommandLineReader
     private const int CommandLineOffset64 = 0x70;
     private const int UnicodeStringBufferOffset64 = 0x8;
 
-    private static readonly Regex CommandLineRegex = new(@"\s+", RegexOptions.Compiled);
     private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(60);
 
     private readonly ILogger<ProcessCommandLineReader> _logger;
@@ -138,7 +136,7 @@ public sealed class ProcessCommandLineReader : IProcessCommandLineReader
             }
 
             var bytes = ReadBytes(handle, unicode.Buffer, unicode.Length);
-            return NormalizeCommandLine(Encoding.Unicode.GetString(bytes));
+            return CommandLineNormalizer.Normalize(Encoding.Unicode.GetString(bytes));
         }
         catch (OperationCanceledException)
         {
@@ -186,7 +184,7 @@ public sealed class ProcessCommandLineReader : IProcessCommandLineReader
 
             var commandLineAddress = IntPtr.Add(parametersAddress, CommandLineOffset64);
             var raw = ReadRemoteUnicodeString(handle, commandLineAddress);
-            return NormalizeCommandLine(raw);
+            return CommandLineNormalizer.Normalize(raw);
         }
         catch (OperationCanceledException)
         {
@@ -237,16 +235,6 @@ public sealed class ProcessCommandLineReader : IProcessCommandLineReader
     {
         var bytes = ReadBytes(handle, address, sizeof(long));
         return new IntPtr(BitConverter.ToInt64(bytes, 0));
-    }
-
-    private static string? NormalizeCommandLine(string? raw)
-    {
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            return null;
-        }
-
-        return CommandLineRegex.Replace(raw.Trim(), " ");
     }
 
     private bool TryGetCached(int processId, out string? commandLine)

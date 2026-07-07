@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P3-2：命令行空白归一化去 Regex（进行中）
+阶段 P3-3：`AppMetricsTimer` 后台暂停（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -242,14 +242,14 @@
 - **状态：** complete
 
 #### P3-2：命令行空白归一化去 Regex
-- [ ] 用 `StringBuilder`/`ValueStringBuilder` 替换 `Regex.Replace`
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 用 `StringBuilder`/`ValueStringBuilder` 替换 `Regex.Replace`
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 #### P3-3：`AppMetricsTimer` 后台暂停
 - [ ] 窗口隐藏/最小化时暂停，恢复时立即更新
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 ### 阶段 P4：性能基准与回归防护
 
@@ -260,7 +260,7 @@
 - **状态：** pending
 
 ## 当前阶段
-阶段 P0-1（用原生 API 替换 `ProcessTreeReader` 的 PowerShell/CIM）
+阶段 P3-3：`AppMetricsTimer` 后台暂停（进行中）
 
 ## 已做决策
 
