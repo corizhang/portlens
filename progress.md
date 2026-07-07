@@ -895,3 +895,35 @@
 - 下一步：
   - 手动运行 `outputs/PortLensMaterial/PortLens.exe`，滚动到列表中间，等待多次扫描刷新，确认抖动是否消除
   - 如果仍抖动，考虑进一步减少 CPU/内存/运行时间的刷新频率或引入阈值
+
+### 阶段：发布 v1.0.10
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 运行 `dotnet build PortLens.sln --configuration Release` 验证 Release 构建（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln --configuration Release` 验证（74 个测试全部通过）
+  - 运行 `scripts/publish.ps1 -Version '1.0.10' -AssemblyVersion '1.0.10.0' -FileVersion '1.0.10.0' -InformationalVersion '1.0.10'` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 创建 `RELEASE_NOTES_v1.0.10.md`，包含 Bug Fixes、Performance Improvements、Engineering 和 Full Changelog 四部分
+  - 创建 annotated tag `v1.0.10`，tag message 包含 Release notes 摘要
+  - 推送 `v1.0.10` tag 到 GitHub 与 Gitea，触发 GitHub Actions Release 工作流
+- 创建/修改的文件：
+  - `RELEASE_NOTES_v1.0.10.md`（新增）
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | Release 构建 | `dotnet build PortLens.sln --configuration Release` | 成功 | 0 警告 0 错误 | 通过 |
+  | Release 单元测试 | `dotnet test PortLens.sln --configuration Release` | 全部通过 | 74 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=21884，Children=0，Smoke test passed | 通过 |
+  | Tag 推送 | `git push github v1.0.10 && git push gitea v1.0.10` | 两个远端均收到 tag | GitHub 与 Gitea 均返回 `[new tag] v1.0.10 -> v1.0.10` | 通过 |
+- Release notes 文件：
+  - `RELEASE_NOTES_v1.0.10.md`
+- Release notes 摘要：
+  - **Bug Fixes**：修复扫描时卡片列表抖动/滚动跳动；`PortEntryViewModel.Update` 仅在实际值变化时触发 `PropertyChanged`；`RefreshSearchFilterAsync` 在匹配集合未变时跳过 `FilteredEntries.Refresh()`
+  - **Performance**：托盘菜单缓存、About 徽章图片缓存、命令行空白归一化去 Regex、窗口隐藏/最小化时暂停 AppMetricsTimer
+  - **Engineering**：新增 `PortLens.Benchmarks` BenchmarkDotNet 基准项目
+  - **Full Changelog**：`v1.0.9...v1.0.10`
+- 下一步：
+  - 等待 GitHub Actions 构建并发布 Release v1.0.10
