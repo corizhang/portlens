@@ -30,18 +30,55 @@ public sealed class ProcessCurrentDirectoryReader
     public string? Read(int processId)
     {
         var pebDirectory = ReadFromPeb(processId);
-        if (!string.IsNullOrWhiteSpace(pebDirectory) && !IsJreBinDirectory(pebDirectory))
+        if (IsValidProjectDirectory(pebDirectory))
         {
             return pebDirectory;
         }
 
         var wmiDirectory = ReadFromWmi(processId);
-        if (!string.IsNullOrWhiteSpace(wmiDirectory) && Directory.Exists(wmiDirectory) && !IsJreBinDirectory(wmiDirectory))
+        if (IsValidProjectDirectory(wmiDirectory))
         {
             return wmiDirectory;
         }
 
-        return pebDirectory;
+        var parentId = GetParentProcessId(processId);
+        if (parentId.HasValue && parentId.Value > 0)
+        {
+            var parentPebDirectory = ReadFromPeb(parentId.Value);
+            if (IsValidProjectDirectory(parentPebDirectory))
+            {
+                return parentPebDirectory;
+            }
+
+            var parentWmiDirectory = ReadFromWmi(parentId.Value);
+            if (IsValidProjectDirectory(parentWmiDirectory))
+            {
+                return parentWmiDirectory;
+            }
+
+            var grandparentId = GetParentProcessId(parentId.Value);
+            if (grandparentId.HasValue && grandparentId.Value > 0)
+            {
+                var grandparentPebDirectory = ReadFromPeb(grandparentId.Value);
+                if (IsValidProjectDirectory(grandparentPebDirectory))
+                {
+                    return grandparentPebDirectory;
+                }
+
+                var grandparentWmiDirectory = ReadFromWmi(grandparentId.Value);
+                if (IsValidProjectDirectory(grandparentWmiDirectory))
+                {
+                    return grandparentWmiDirectory;
+                }
+            }
+        }
+
+        return !string.IsNullOrWhiteSpace(wmiDirectory) ? wmiDirectory : pebDirectory;
+    }
+
+    private static bool IsValidProjectDirectory(string? path)
+    {
+        return !string.IsNullOrWhiteSpace(path) && Directory.Exists(path) && !IsJreBinDirectory(path);
     }
 
     private string? ReadFromPeb(int processId)
@@ -112,7 +149,30 @@ public sealed class ProcessCurrentDirectoryReader
         }
         catch
         {
-            // WMI may be unavailable or restricted; fall back to PEB value.
+            // WMI may be unavailable or restricted.
+        }
+
+        return null;
+    }
+
+    private static int? GetParentProcessId(int processId)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(
+                $"SELECT ParentProcessId FROM Win32_Process WHERE ProcessId = {processId}");
+            foreach (ManagementObject obj in searcher.Get())
+            {
+                var value = obj["ParentProcessId"];
+                if (value is not null)
+                {
+                    return Convert.ToInt32(value);
+                }
+            }
+        }
+        catch
+        {
+            // WMI may be unavailable or restricted.
         }
 
         return null;

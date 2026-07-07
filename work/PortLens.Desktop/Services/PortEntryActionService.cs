@@ -36,7 +36,7 @@ internal sealed class PortEntryActionService
 
     public void CopyCommandLine(PortEntryViewModel entry)
     {
-        CopyText(entry.CommandText, Resources.GetString("CopiedCommandLine"));
+        CopyText(entry.FullCommandText, Resources.GetString("CopiedCommandLine"));
     }
 
     public void OpenProcessDirectory(PortEntryViewModel entry)

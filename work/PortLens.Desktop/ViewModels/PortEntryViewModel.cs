@@ -48,7 +48,29 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
         ? Resources.GetString("MemoryTextFormat", _entry.MemoryBytes.Value / 1024 / 1024)
         : "";
     public string AddressText => $"{_entry.Protocol} {_entry.LocalAddress}:{_entry.LocalPort}";
-    public string CommandText => _entry.CommandLine ?? _entry.ProcessName;
+    public string CommandText
+    {
+        get
+        {
+            var command = _entry.CommandLine ?? _entry.ProcessName;
+            if (command is null)
+            {
+                return _entry.ProcessName;
+            }
+
+            if (command.Length > 300)
+            {
+                var firstPart = command[..250];
+                var lastPart = command[^50..];
+                return $"{firstPart} ... {lastPart}";
+            }
+
+            return command;
+        }
+    }
+
+    public string FullCommandText => _entry.CommandLine ?? _entry.ProcessName;
+
     public string DirectoryText => _entry.WorkingDirectory ?? _entry.ExecutablePath ?? "";
 
     public PortEntryKey Key => new(_entry.Protocol, _entry.LocalAddress, _entry.LocalPort, _entry.ProcessId);

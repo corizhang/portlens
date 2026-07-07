@@ -118,6 +118,76 @@ public class ProjectNameResolverTests : IDisposable
         Assert.Null(actual);
     }
 
+    [Fact]
+    public void InferWorkingDirectory_RelativeJarFromAncestorDirectory_ReturnsProjectRoot()
+    {
+        var projectDir = Path.Combine(Path.GetTempPath(), $"PortLensTests-{Guid.NewGuid()}");
+        Directory.CreateDirectory(projectDir);
+        _tempPaths.Add(projectDir);
+        var jarDir = Path.Combine(projectDir, "mall-backend", "mall-server-web", "target");
+        Directory.CreateDirectory(jarDir);
+        var jarPath = Path.Combine(jarDir, "mall-server-web-0.0.1-SNAPSHOT.jar");
+        File.WriteAllText(jarPath, "fake jar");
+
+        var jdkBin = Path.Combine(projectDir, "jdk", "bin");
+        Directory.CreateDirectory(jdkBin);
+
+        var commandLine = $"\"{jdkBin}\\java.exe\" -jar mall-backend/mall-server-web/target/mall-server-web-0.0.1-SNAPSHOT.jar";
+
+        var actual = ProjectNameResolver.InferWorkingDirectory(commandLine, jdkBin, jdkBin);
+
+        Assert.Equal(projectDir, actual);
+    }
+
+    [Fact]
+    public void InferWorkingDirectory_RelativeJarFromSiblingDirectory_SearchesAncestors()
+    {
+        var parentDir = Path.Combine(Path.GetTempPath(), $"PortLensTests-{Guid.NewGuid()}");
+        Directory.CreateDirectory(parentDir);
+        _tempPaths.Add(parentDir);
+
+        var projectDir = Path.Combine(parentDir, "project");
+        Directory.CreateDirectory(projectDir);
+        var jarDir = Path.Combine(projectDir, "target");
+        Directory.CreateDirectory(jarDir);
+        var jarPath = Path.Combine(jarDir, "app.jar");
+        File.WriteAllText(jarPath, "fake jar");
+
+        var unrelatedDir = Path.Combine(parentDir, "unrelated");
+        Directory.CreateDirectory(unrelatedDir);
+
+        var commandLine = "java -jar project/target/app.jar";
+
+        var actual = ProjectNameResolver.InferWorkingDirectory(commandLine, unrelatedDir, unrelatedDir);
+
+        Assert.Equal(parentDir, actual);
+    }
+
+    [Fact]
+    public void InferWorkingDirectory_MavenSpringBootRunClasspath_ReturnsProjectRoot()
+    {
+        var projectDir = Path.Combine(Path.GetTempPath(), $"PortLensTests-{Guid.NewGuid()}");
+        Directory.CreateDirectory(projectDir);
+        _tempPaths.Add(projectDir);
+        var classesDir = Path.Combine(projectDir, "mall-server-web", "target", "classes");
+        Directory.CreateDirectory(classesDir);
+
+        var jdkBin = Path.Combine(projectDir, "jdk", "bin");
+        Directory.CreateDirectory(jdkBin);
+        var repoJar = Path.Combine(projectDir, ".m2", "repository", "org", "example", "lib.jar");
+        Directory.CreateDirectory(Path.GetDirectoryName(repoJar)!);
+        File.WriteAllText(repoJar, "fake jar");
+        var pomPath = Path.Combine(projectDir, "pom.xml");
+        File.WriteAllText(pomPath, "<project/>");
+
+        var classpath = $"{classesDir};{repoJar}";
+        var commandLine = $"\"{jdkBin}\\java.exe\" -XX:TieredStopAtLevel=1 -cp \"{classpath}\" com.mall.web.MallServerApplication";
+
+        var actual = ProjectNameResolver.InferWorkingDirectory(commandLine, jdkBin, jdkBin);
+
+        Assert.Equal(projectDir, actual);
+    }
+
     private string CreateTempDir()
     {
         var root = Path.GetPathRoot(Path.GetTempPath()) ?? Path.GetTempPath();
