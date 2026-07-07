@@ -22,6 +22,35 @@
 - 下一步：
   - 实施 P0-2：`FileLogger` 异步化
 
+### 阶段 P1-2：进程快照按需枚举或原生化
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 扩展 `IProcessTreeReader` 接口：新增 `TryGetProcessName`，从进程树快照获取进程名
+  - `ProcessTreeReader` 的 `Snapshot` 增加 `ProcessNames`，并在原生快照命中时提供名称
+  - `PowerShellProcessTreeReader` 实现 `TryGetProcessName` 返回 false（无名称信息）
+  - 重写 `ProcessInspector.CaptureSnapshot`：仅对 TCP 表中的 live PID 调用 `Process.GetProcessById`，失败时回退到进程树快照中的进程名
+  - 彻底移除 `Process.GetProcesses()` 全枚举，减少对象分配
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（61 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Core/Services/ProcessTreeReader.cs`
+  - `work/PortLens.Core/Services/PowerShellProcessTreeReader.cs`
+  - `task_plan.md`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 61 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=7260，Children=0，Smoke test passed | 通过 |
+- 下一步：
+  - 实施 P1-3：字体列表缓存与 ComboBox 虚拟化
+
 ### 阶段 P1-1：`HttpClient` 超时与重试策略
 - **状态：** complete
 - **开始时间：** 2026-07-07

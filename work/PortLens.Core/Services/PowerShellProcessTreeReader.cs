@@ -32,6 +32,12 @@ public sealed class PowerShellProcessTreeReader : IProcessTreeReader
         return CountDescendants(childrenByParent, processId);
     }
 
+    public bool TryGetProcessName(int processId, out string? processName)
+    {
+        processName = null;
+        return false;
+    }
+
     internal IReadOnlyDictionary<int, IReadOnlyList<int>>? CaptureSnapshot(CancellationToken cancellationToken = default)
     {
         return GetSnapshot(cancellationToken);

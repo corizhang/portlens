@@ -6,6 +6,7 @@ public interface IProcessTreeReader
 {
     int CountDescendants(int processId, CancellationToken cancellationToken = default);
     void Prune(IEnumerable<int> liveProcessIds);
+    bool TryGetProcessName(int processId, out string? processName);
 }
 
 /// <summary>
@@ -26,6 +27,19 @@ public sealed class ProcessTreeReader : IProcessTreeReader
     {
         _logger = logger;
         _fallback = new PowerShellProcessTreeReader(logger);
+    }
+
+    public bool TryGetProcessName(int processId, out string? processName)
+    {
+        var snapshot = GetSnapshot(CancellationToken.None);
+        if (snapshot?.ProcessNames is not null && snapshot.ProcessNames.TryGetValue(processId, out var name))
+        {
+            processName = name;
+            return true;
+        }
+
+        processName = null;
+        return false;
     }
 
     public int CountDescendants(int processId, CancellationToken cancellationToken = default)
@@ -90,7 +104,11 @@ public sealed class ProcessTreeReader : IProcessTreeReader
                 .Where(pair => live.Contains(pair.Key))
                 .ToDictionary(pair => pair.Key, pair => pair.Value);
 
-            _snapshot = new Snapshot(prunedChildren, prunedParents, _snapshot.CachedAt);
+            var prunedNames = _snapshot.ProcessNames
+                .Where(pair => live.Contains(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+            _snapshot = new Snapshot(prunedChildren, prunedParents, prunedNames, _snapshot.CachedAt);
         }
     }
 
@@ -117,7 +135,7 @@ public sealed class ProcessTreeReader : IProcessTreeReader
             {
                 lock (_snapshotLock)
                 {
-                    _snapshot = new Snapshot(native.ChildrenByParent, native.ParentByChild, DateTimeOffset.UtcNow);
+                    _snapshot = new Snapshot(native.ChildrenByParent, native.ParentByChild, native.ProcessNames, DateTimeOffset.UtcNow);
                     return _snapshot;
                 }
             }
@@ -145,7 +163,7 @@ public sealed class ProcessTreeReader : IProcessTreeReader
 
         lock (_snapshotLock)
         {
-            _snapshot = new Snapshot(childrenByParent, new Dictionary<int, int>(), DateTimeOffset.UtcNow);
+            _snapshot = new Snapshot(childrenByParent, new Dictionary<int, int>(), new Dictionary<int, string>(), DateTimeOffset.UtcNow);
             return _snapshot;
         }
     }
@@ -168,15 +186,18 @@ public sealed class ProcessTreeReader : IProcessTreeReader
         public Snapshot(
             IReadOnlyDictionary<int, IReadOnlyList<int>> childrenByParent,
             IReadOnlyDictionary<int, int> parentByChild,
+            IReadOnlyDictionary<int, string> processNames,
             DateTimeOffset cachedAt)
         {
             ChildrenByParent = childrenByParent;
             ParentByChild = parentByChild;
+            ProcessNames = processNames;
             CachedAt = cachedAt;
         }
 
         public IReadOnlyDictionary<int, IReadOnlyList<int>> ChildrenByParent { get; }
         public IReadOnlyDictionary<int, int> ParentByChild { get; }
+        public IReadOnlyDictionary<int, string> ProcessNames { get; }
         public DateTimeOffset CachedAt { get; }
         public bool IsExpired => DateTimeOffset.UtcNow - CachedAt > SnapshotTtl;
     }

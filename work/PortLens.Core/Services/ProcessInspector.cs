@@ -41,36 +41,33 @@ public sealed class ProcessInspector
     {
         var wanted = processIds.ToHashSet();
         var snapshot = new Dictionary<int, ProcessSnapshot>();
-        ProcessSnapshot? snap;
-        foreach (var process in Safe(() => Process.GetProcesses()) ?? Array.Empty<Process>())
+        foreach (var processId in wanted)
         {
-            using (process)
+            ProcessSnapshot? snap = null;
+            try
             {
-                if (!wanted.Contains(process.Id))
-                {
-                    continue;
-                }
+                using var process = Process.GetProcessById(processId);
+                snap = new ProcessSnapshot(
+                    process.Id,
+                    process.ProcessName,
+                    process.StartTime,
+                    process.WorkingSet64,
+                    process.TotalProcessorTime,
+                    process.MainModule?.FileName);
+            }
+            catch
+            {
+                // Ignore processes we cannot inspect.
+            }
 
-                snap = null;
-                try
-                {
-                    snap = new ProcessSnapshot(
-                        process.Id,
-                        process.ProcessName,
-                        process.StartTime,
-                        process.WorkingSet64,
-                        process.TotalProcessorTime,
-                        process.MainModule?.FileName);
-                }
-                catch
-                {
-                    // Ignore processes we cannot inspect.
-                }
+            if (snap is null && _processTreeReader.TryGetProcessName(processId, out var name) && !string.IsNullOrWhiteSpace(name))
+            {
+                snap = new ProcessSnapshot(processId, name!, default, 0, TimeSpan.Zero, null);
+            }
 
-                if (snap.HasValue)
-                {
-                    snapshot[snap.Value.Id] = snap.Value;
-                }
+            if (snap.HasValue)
+            {
+                snapshot[snap.Value.Id] = snap.Value;
             }
         }
 
