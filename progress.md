@@ -831,3 +831,34 @@
   | Tag 推送 | `git push github v1.0.9 && git push gitea v1.0.9` | 两个远端均收到 tag | GitHub 与 Gitea 均返回 `[new tag] v1.0.9 -> v1.0.9` | 通过 |
 - 下一步：
   - 等待 GitHub Actions 构建并发布 Release v1.0.9
+
+### 问题修复：扫描时卡片列表抖动
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 问题描述：
+  - 每次扫描端口时，卡片列表都会发生抖动，可能自动滚动到列表最下方或发生偏移
+- 根因分析：
+  - `MainWindowViewModel.ApplyEntries` 每次扫描都会调用 `SuppressibleObservableCollection.ResetTo`
+  - `ResetTo` 在 suppression scope 退出时发出 `NotifyCollectionChangedAction.Reset` 事件
+  - WPF 虚拟化面板收到 `Reset` 后会认为整个集合完全改变，丢弃所有容器、重建分组、重置滚动位置，导致视觉抖动
+- 执行的操作：
+  - 在 `ApplyEntries` 中比较当前 `_entries` 与新 `_orderedBuffer` 的引用和顺序
+  - 只有当数量或顺序发生变化时才调用 `ResetTo`；否则只通过 `existing.Update(entry)` 更新属性，不触发集合重置
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（74 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 74 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=172，Children=0，Smoke test passed | 通过 |
+- 备注：
+  - 该修复为回归修复，不包含在 v1.0.9 tag 中；如需作为正式版本发布，需要新建 tag（如 v1.0.10）
+- 下一步：
+  - 请手动运行发布后的 `PortLens.exe` 验证列表在多次扫描间隔中是否仍抖动，特别是滚动到中间位置后观察
