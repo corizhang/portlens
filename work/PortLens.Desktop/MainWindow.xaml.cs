@@ -91,7 +91,7 @@ public partial class MainWindow : Window
         UpdateAppMetrics();
         _appMetricsTimer.Interval = TimeSpan.FromSeconds(1);
         _appMetricsTimer.Tick += (_, _) => UpdateAppMetrics();
-        _appMetricsTimer.Start();
+        UpdateAppMetricsTimer();
 
         Loaded += async (_, _) =>
         {
@@ -109,8 +109,13 @@ public partial class MainWindow : Window
         {
             ScheduleSettingsSave();
             UpdateScanTimerInterval();
+            UpdateAppMetricsTimer();
         };
-        IsVisibleChanged += (_, _) => UpdateScanTimerInterval();
+        IsVisibleChanged += (_, _) =>
+        {
+            UpdateScanTimerInterval();
+            UpdateAppMetricsTimer();
+        };
         Closing += MainWindow_Closing;
     }
 
@@ -156,6 +161,35 @@ public partial class MainWindow : Window
         catch
         {
             _viewModel.AppResourceText = Properties.Resources.GetString("AppResourceIdle");
+        }
+    }
+
+    private void UpdateAppMetricsTimer()
+    {
+        var shouldRun = IsVisible && WindowState != WindowState.Minimized;
+        if (shouldRun)
+        {
+            if (!_appMetricsTimer.IsEnabled)
+            {
+                try
+                {
+                    using var process = Process.GetCurrentProcess();
+                    _lastAppMetricsAt = DateTimeOffset.UtcNow;
+                    _lastAppCpuTime = process.TotalProcessorTime;
+                }
+                catch
+                {
+                    _lastAppMetricsAt = default;
+                    _lastAppCpuTime = default;
+                }
+
+                _appMetricsTimer.Start();
+                UpdateAppMetrics();
+            }
+        }
+        else
+        {
+            _appMetricsTimer.Stop();
         }
     }
 

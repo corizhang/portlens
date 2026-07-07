@@ -247,9 +247,9 @@
 - **状态：** complete
 
 #### P3-3：`AppMetricsTimer` 后台暂停
-- [ ] 窗口隐藏/最小化时暂停，恢复时立即更新
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 窗口隐藏/最小化时暂停，恢复时立即更新
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 ### 阶段 P4：性能基准与回归防护
 
@@ -257,10 +257,10 @@
 - [ ] 基准覆盖：`PortScanner.Scan`、`FrameworkDetector.InferFramework`、`ProjectRootResolver.Resolve`、`ProcessTreeReader.CountDescendants`
 - [ ] 在 CI 中可选运行基准（PR 不阻塞，但记录结果）
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 ## 当前阶段
-阶段 P3-3：`AppMetricsTimer` 后台暂停（进行中）
+阶段 P4-1：BenchmarkDotNet 性能基准（进行中）
 
 ## 已做决策
 
