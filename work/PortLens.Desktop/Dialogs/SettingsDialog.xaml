@@ -290,7 +290,9 @@
                                 <ComboBox x:Name="ChineseFontCombo"
                                           Grid.Column="1"
                                           Width="160"
-                                          Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          VirtualizingStackPanel.IsVirtualizing="True"
+                                          VirtualizingStackPanel.VirtualizationMode="Recycling" />
                             </Grid>
 
                             <Grid Margin="0,0,0,14">
@@ -311,7 +313,9 @@
                                 <ComboBox x:Name="EnglishFontCombo"
                                           Grid.Column="1"
                                           Width="160"
-                                          Style="{StaticResource MaterialDesignOutlinedComboBox}" />
+                                          Style="{StaticResource MaterialDesignOutlinedComboBox}"
+                                          VirtualizingStackPanel.IsVirtualizing="True"
+                                          VirtualizingStackPanel.VirtualizationMode="Recycling" />
                             </Grid>
 
                             <TextBlock Text="{loc:Loc Key=AppSubtitle}"

@@ -120,42 +120,29 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         RefreshIntervalCombo.SelectedIndex = 1;
     }
 
+    private sealed record FontOption(string Name, string DisplayName, System.Windows.Media.FontFamily FontFamily);
+
     private void BuildFontCombo(WpfComboBox comboBox, string selectedFont)
     {
-        comboBox.Items.Clear();
-        comboBox.Items.Add(new ComboBoxItem
+        var options = new List<FontOption>
         {
-            Content = Properties.Resources.GetString("FontSystemDefault"),
-            Tag = ""
-        });
+            new("", Properties.Resources.GetString("FontSystemDefault"), System.Windows.SystemFonts.MessageFontFamily)
+        };
 
         foreach (var fontName in FontService.GetInstalledFontFamilies())
         {
-            comboBox.Items.Add(new ComboBoxItem
-            {
-                Content = fontName,
-                Tag = fontName,
-                FontFamily = new System.Windows.Media.FontFamily(fontName)
-            });
+            options.Add(new FontOption(fontName, fontName, new System.Windows.Media.FontFamily(fontName)));
         }
 
-        foreach (var item in comboBox.Items.OfType<ComboBoxItem>())
-        {
-            if (item.Tag?.ToString() == selectedFont)
-            {
-                comboBox.SelectedItem = item;
-                return;
-            }
-        }
-
-        comboBox.SelectedIndex = 0;
+        comboBox.ItemsSource = options;
+        comboBox.DisplayMemberPath = "DisplayName";
+        comboBox.SelectedValuePath = "Name";
+        comboBox.SelectedValue = selectedFont;
     }
 
     private string GetSelectedFont(WpfComboBox comboBox)
     {
-        return comboBox.SelectedItem is ComboBoxItem item
-            ? item.Tag?.ToString() ?? ""
-            : "";
+        return comboBox.SelectedValue?.ToString() ?? "";
     }
 
     private void BuildFrameworkRules(IReadOnlySet<string> enabledFrameworks)

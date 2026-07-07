@@ -22,6 +22,34 @@
 - 下一步：
   - 实施 P0-2：`FileLogger` 异步化
 
+### 阶段 P1-3：字体列表缓存与 ComboBox 虚拟化
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 将 `FontService.GetInstalledFontFamilies` 改为 `Lazy<IReadOnlyList<string>>`，会话期间只枚举一次系统字体
+  - 在 `SettingsDialog.xaml` 中为中文/英文字体 ComboBox 启用 `VirtualizingStackPanel.IsVirtualizing` 和 `VirtualizationMode="Recycling"`
+  - 重写 `BuildFontCombo`：使用数据项列表（`FontOption` 记录）并设置 `ItemsSource`/`DisplayMemberPath`/`SelectedValuePath`，避免创建上千个 `ComboBoxItem`
+  - 更新 `GetSelectedFont` 读取 `SelectedValue`
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（61 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/Services/FontService.cs`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml.cs`
+  - `task_plan.md`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 61 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=13896，Children=0，Smoke test passed | 通过 |
+- 下一步：
+  - 实施 P2-1：`FrameworkDetector` 避免大字符串拼接
+
 ### 阶段 P1-2：进程快照按需枚举或原生化
 - **状态：** complete
 - **开始时间：** 2026-07-07

@@ -6,7 +6,7 @@ using System.Windows.Media;
 
 public static class FontService
 {
-    public static IReadOnlyList<string> GetInstalledFontFamilies()
+    private static readonly Lazy<IReadOnlyList<string>> _installedFontFamilies = new(() =>
     {
         using var collection = new InstalledFontCollection();
         return collection.Families
@@ -14,6 +14,11 @@ public static class FontService
             .Where(name => !string.IsNullOrWhiteSpace(name))
             .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
             .ToList();
+    });
+
+    public static IReadOnlyList<string> GetInstalledFontFamilies()
+    {
+        return _installedFontFamilies.Value;
     }
 
     public static FontFamily ResolveFontFamily(string? name)

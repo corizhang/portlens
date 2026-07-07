@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P1-3：字体列表缓存与 ComboBox 虚拟化（进行中）
+阶段 P2-1：`FrameworkDetector` 避免大字符串拼接（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -205,11 +205,11 @@
 - **状态：** complete
 
 #### P1-3：字体列表缓存与 ComboBox 虚拟化
-- [ ] `FontService.GetInstalledFontFamilies` 改为 Lazy 缓存
-- [ ] `SettingsDialog` 中两个字体 ComboBox 启用虚拟化
-- [ ] 验证设置对话框打开速度
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] `FontService.GetInstalledFontFamilies` 改为 Lazy 缓存
+- [x] `SettingsDialog` 中两个字体 ComboBox 启用虚拟化
+- [x] 验证设置对话框打开速度
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 ### 阶段 P2：算法与集合优化（中优先级）
 
@@ -218,7 +218,7 @@
 - [ ] 使用 `ReadOnlySpan<char>` / `SearchValues<string>` 减少分配
 - [ ] 保持现有框架识别准确率
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 #### P2-2：`ProjectRootResolver` 目录 marker 缓存
 - [ ] 添加 `ConcurrentDictionary<string, DirectoryInfo?>` 缓存，TTL 30s
