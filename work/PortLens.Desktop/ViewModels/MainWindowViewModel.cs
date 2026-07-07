@@ -431,9 +431,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 return;
             }
 
+            var previousKeys = _matchingKeys;
             _matchingKeys = matchingKeys;
-            FilteredEntries.Refresh();
-            OnPropertyChanged(nameof(IsEmpty));
+
+            if (!previousKeys.SetEquals(matchingKeys))
+            {
+                FilteredEntries.Refresh();
+                OnPropertyChanged(nameof(IsEmpty));
+            }
         }
         catch (OperationCanceledException)
         {

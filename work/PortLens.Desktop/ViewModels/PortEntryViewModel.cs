@@ -94,26 +94,56 @@ public sealed class PortEntryViewModel : INotifyPropertyChanged
 
     public void Update(PortEntry entry)
     {
+        var oldProcessName = ProcessName;
+        var oldProjectName = ProjectName;
+        var oldFramework = Framework;
+        var oldWorkingDirectory = WorkingDirectory;
+        var oldExecutablePath = ExecutablePath;
+        var oldProcessDirectory = ProcessDirectory;
+        var oldProjectRootDirectory = ProjectRootDirectory;
+        var oldProjectGroupKey = ProjectGroupKey;
+        var oldProjectGroupTitle = ProjectGroupTitle;
+        var oldProjectGroupSubtitle = ProjectGroupSubtitle;
+        var oldDisplayName = DisplayName;
+        var oldFrameworkText = FrameworkText;
+        var oldUptimeText = UptimeText;
+        var oldCpuText = CpuText;
+        var oldMemoryText = MemoryText;
+        var oldAddressText = AddressText;
+        var oldCommandText = CommandText;
+        var oldDirectoryText = DirectoryText;
+        var oldSearchHaystack = SearchHaystack;
+
         _entry = entry;
         RecalculateDerivedValues();
-        OnPropertyChanged(nameof(ProcessName));
-        OnPropertyChanged(nameof(ProjectName));
-        OnPropertyChanged(nameof(Framework));
-        OnPropertyChanged(nameof(WorkingDirectory));
-        OnPropertyChanged(nameof(ExecutablePath));
-        OnPropertyChanged(nameof(ProcessDirectory));
-        OnPropertyChanged(nameof(ProjectRootDirectory));
-        OnPropertyChanged(nameof(ProjectGroupKey));
-        OnPropertyChanged(nameof(ProjectGroupTitle));
-        OnPropertyChanged(nameof(ProjectGroupSubtitle));
-        OnPropertyChanged(nameof(DisplayName));
-        OnPropertyChanged(nameof(FrameworkText));
-        OnPropertyChanged(nameof(UptimeText));
-        OnPropertyChanged(nameof(CpuText));
-        OnPropertyChanged(nameof(MemoryText));
-        OnPropertyChanged(nameof(AddressText));
-        OnPropertyChanged(nameof(CommandText));
-        OnPropertyChanged(nameof(DirectoryText));
+
+        RaiseIfChanged(oldProcessName, ProcessName, nameof(ProcessName));
+        RaiseIfChanged(oldProjectName, ProjectName, nameof(ProjectName));
+        RaiseIfChanged(oldFramework, Framework, nameof(Framework));
+        RaiseIfChanged(oldWorkingDirectory, WorkingDirectory, nameof(WorkingDirectory));
+        RaiseIfChanged(oldExecutablePath, ExecutablePath, nameof(ExecutablePath));
+        RaiseIfChanged(oldProcessDirectory, ProcessDirectory, nameof(ProcessDirectory));
+        RaiseIfChanged(oldProjectRootDirectory, ProjectRootDirectory, nameof(ProjectRootDirectory));
+        RaiseIfChanged(oldProjectGroupKey, ProjectGroupKey, nameof(ProjectGroupKey));
+        RaiseIfChanged(oldProjectGroupTitle, ProjectGroupTitle, nameof(ProjectGroupTitle));
+        RaiseIfChanged(oldProjectGroupSubtitle, ProjectGroupSubtitle, nameof(ProjectGroupSubtitle));
+        RaiseIfChanged(oldDisplayName, DisplayName, nameof(DisplayName));
+        RaiseIfChanged(oldFrameworkText, FrameworkText, nameof(FrameworkText));
+        RaiseIfChanged(oldUptimeText, UptimeText, nameof(UptimeText));
+        RaiseIfChanged(oldCpuText, CpuText, nameof(CpuText));
+        RaiseIfChanged(oldMemoryText, MemoryText, nameof(MemoryText));
+        RaiseIfChanged(oldAddressText, AddressText, nameof(AddressText));
+        RaiseIfChanged(oldCommandText, CommandText, nameof(CommandText));
+        RaiseIfChanged(oldDirectoryText, DirectoryText, nameof(DirectoryText));
+        RaiseIfChanged(oldSearchHaystack, SearchHaystack, nameof(SearchHaystack));
+    }
+
+    private void RaiseIfChanged(string? oldValue, string? newValue, string propertyName)
+    {
+        if (!string.Equals(oldValue, newValue))
+        {
+            OnPropertyChanged(propertyName);
+        }
     }
 
     private void RecalculateDerivedValues()
