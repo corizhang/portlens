@@ -1,7 +1,12 @@
+using System.Collections.Concurrent;
+
 namespace PortLens.Services;
 
 public static class ProjectRootResolver
 {
+    private static readonly ConcurrentDictionary<string, CacheEntry> RootCache = new();
+    private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(5);
+
     private static readonly HashSet<string> ChildProjectNames = new(StringComparer.OrdinalIgnoreCase)
     {
         "api",
@@ -21,6 +26,69 @@ public static class ProjectRootResolver
     };
 
     public static string? Resolve(string? directory)
+    {
+        if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+        {
+            return directory;
+        }
+
+        var normalized = directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        if (RootCache.TryGetValue(normalized, out var cached) && cached.ExpiresAt > DateTimeOffset.UtcNow)
+        {
+            return cached.Root;
+        }
+
+        var result = ResolveUncached(directory);
+        RootCache[normalized] = new CacheEntry(result, DateTimeOffset.UtcNow + CacheTtl);
+        return result;
+    }
+
+    public static string DisplayName(string? directory, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            return fallback;
+        }
+
+        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+        return string.IsNullOrWhiteSpace(name) ? fallback : name;
+    }
+
+    /// <summary>
+    /// Computes a subtitle for a project group entry, preferring the path of <paramref name="workingDirectory"/u003e
+    /// relative to <paramref name="rootDirectory"/u003e so that entries grouped under a shared root remain distinguishable.
+    /// </summary>
+    public static string ComputeRelativeSubtitle(string? rootDirectory, string? workingDirectory, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(workingDirectory))
+        {
+            return fallback;
+        }
+
+        if (string.IsNullOrWhiteSpace(rootDirectory))
+        {
+            return DisplayName(workingDirectory, fallback);
+        }
+
+        var root = rootDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var work = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+        if (root.Equals(work, StringComparison.OrdinalIgnoreCase))
+        {
+            return DisplayName(workingDirectory, fallback);
+        }
+
+        if (work.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
+            || work.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+        {
+            var relative = work[(root.Length + 1)..];
+            return string.IsNullOrWhiteSpace(relative) ? DisplayName(workingDirectory, fallback) : relative;
+        }
+
+        return DisplayName(workingDirectory, fallback);
+    }
+
+    private static string? ResolveUncached(string? directory)
     {
         if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
         {
@@ -52,51 +120,6 @@ public static class ProjectRootResolver
         }
 
         return current.FullName;
-    }
-
-    public static string DisplayName(string? directory, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(directory))
-        {
-            return fallback;
-        }
-
-        var name = Path.GetFileName(directory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-        return string.IsNullOrWhiteSpace(name) ? fallback : name;
-    }
-
-    /// <summary>
-    /// Computes a subtitle for a project group entry, preferring the path of <paramref name="workingDirectory"/>
-    /// relative to <paramref name="rootDirectory"/> so that entries grouped under a shared root remain distinguishable.
-    /// </summary>
-    public static string ComputeRelativeSubtitle(string? rootDirectory, string? workingDirectory, string fallback)
-    {
-        if (string.IsNullOrWhiteSpace(workingDirectory))
-        {
-            return fallback;
-        }
-
-        if (string.IsNullOrWhiteSpace(rootDirectory))
-        {
-            return DisplayName(workingDirectory, fallback);
-        }
-
-        var root = rootDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-        var work = workingDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-
-        if (root.Equals(work, StringComparison.OrdinalIgnoreCase))
-        {
-            return DisplayName(workingDirectory, fallback);
-        }
-
-        if (work.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase)
-            || work.StartsWith(root + Path.AltDirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-        {
-            var relative = work[(root.Length + 1)..];
-            return string.IsNullOrWhiteSpace(relative) ? DisplayName(workingDirectory, fallback) : relative;
-        }
-
-        return DisplayName(workingDirectory, fallback);
     }
 
     private static DirectoryInfo? TryAggregateToParent(DirectoryInfo markerRoot)
@@ -144,22 +167,23 @@ public static class ProjectRootResolver
     {
         try
         {
-            return Directory.Exists(Path.Combine(directory.FullName, ".git"))
-                || Directory.Exists(Path.Combine(directory.FullName, ".idea"))
-                || Directory.Exists(Path.Combine(directory.FullName, ".vscode"))
-                || File.Exists(Path.Combine(directory.FullName, "pnpm-workspace.yaml"))
-                || File.Exists(Path.Combine(directory.FullName, "turbo.json"))
-                || File.Exists(Path.Combine(directory.FullName, "nx.json"))
-                || File.Exists(Path.Combine(directory.FullName, "lerna.json"))
-                || File.Exists(Path.Combine(directory.FullName, "docker-compose.yml"))
-                || File.Exists(Path.Combine(directory.FullName, "go.mod"))
-                || File.Exists(Path.Combine(directory.FullName, "pyproject.toml"))
-                || File.Exists(Path.Combine(directory.FullName, "Cargo.toml"))
-                || File.Exists(Path.Combine(directory.FullName, "composer.json"))
-                || File.Exists(Path.Combine(directory.FullName, "deno.json"))
-                || File.Exists(Path.Combine(directory.FullName, "bun.lockb"))
-                || Directory.EnumerateFiles(directory.FullName, "*.sln").Any()
-                || PackageJsonHasWorkspaces(Path.Combine(directory.FullName, "package.json"));
+            var path = directory.FullName;
+            return Directory.Exists(Path.Combine(path, ".git"))
+                || PackageJsonHasWorkspaces(Path.Combine(path, "package.json"))
+                || Directory.Exists(Path.Combine(path, ".vscode"))
+                || Directory.Exists(Path.Combine(path, ".idea"))
+                || Directory.EnumerateFiles(path, "*.sln").Any()
+                || File.Exists(Path.Combine(path, "pnpm-workspace.yaml"))
+                || File.Exists(Path.Combine(path, "turbo.json"))
+                || File.Exists(Path.Combine(path, "nx.json"))
+                || File.Exists(Path.Combine(path, "lerna.json"))
+                || File.Exists(Path.Combine(path, "docker-compose.yml"))
+                || File.Exists(Path.Combine(path, "go.mod"))
+                || File.Exists(Path.Combine(path, "pyproject.toml"))
+                || File.Exists(Path.Combine(path, "Cargo.toml"))
+                || File.Exists(Path.Combine(path, "composer.json"))
+                || File.Exists(Path.Combine(path, "deno.json"))
+                || File.Exists(Path.Combine(path, "bun.lockb"));
         }
         catch
         {
@@ -178,4 +202,6 @@ public static class ProjectRootResolver
             return false;
         }
     }
+
+    private sealed record CacheEntry(string? Root, DateTimeOffset ExpiresAt);
 }

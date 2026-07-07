@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P2-2：`ProjectRootResolver` 目录 marker 缓存（进行中）
+阶段 P2-3：复用 `ApplyEntries` 中间集合（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -221,17 +221,17 @@
 - **状态：** complete
 
 #### P2-2：`ProjectRootResolver` 目录 marker 缓存
-- [ ] 添加 `ConcurrentDictionary<string, DirectoryInfo?>` 缓存，TTL 30s
-- [ ] 调整 marker 检查顺序，高命中优先
-- [ ] 验证聚合分组行为不变
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 添加 `ConcurrentDictionary<string, DirectoryInfo?>` 缓存，TTL 30s
+- [x] 调整 marker 检查顺序，高命中优先
+- [x] 验证聚合分组行为不变
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 #### P2-3：复用 `ApplyEntries` 中间集合
 - [ ] 复用 `HashSet<PortEntryKey>` 和 `List<PortEntryViewModel>`
 - [ ] 确保线程安全（每次扫描单线程在后台，主线程访问 _entries）
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 ### 阶段 P3：UI 与微优化（低优先级）
 
