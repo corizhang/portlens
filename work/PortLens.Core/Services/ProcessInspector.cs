@@ -165,7 +165,15 @@ public sealed class ProcessInspector
         process.Kill(entireProcessTree: true);
     }
 
-    public int CountChildProcesses(int processId) => _processTreeReader.CountDescendants(processId);
+    public int CountChildProcesses(int processId)
+    {
+        return _processTreeReader.CountDescendants(processId);
+    }
+
+    public IReadOnlyDictionary<int, int>? GetProcessParentMap(CancellationToken cancellationToken = default)
+    {
+        return (_processTreeReader as ProcessTreeReader)?.GetParentMap(cancellationToken);
+    }
 
     private static void ApplyDetails(PortEntry entry, CachedProcessInfo cached)
     {
@@ -177,13 +185,19 @@ public sealed class ProcessInspector
         entry.IsRecognizedDevelopmentService = !string.IsNullOrWhiteSpace(entry.Framework);
     }
 
-    private CachedProcessInfo ReadProcessDetails(int processId, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, bool readExecutablePath, string? cachedCommandLine = null, CancellationToken cancellationToken = default)
+    private CachedProcessInfo ReadProcessDetails(
+        int processId,
+        IReadOnlyDictionary<int, ProcessSnapshot> snapshot,
+        bool readExecutablePath,
+        string? cachedCommandLine = null,
+        CancellationToken cancellationToken = default)
     {
         var commandLine = cachedCommandLine ?? _commandLineReader.Read(processId, cancellationToken);
         var executablePath = readExecutablePath && snapshot.TryGetValue(processId, out var process)
             ? process.ExecutablePath
             : null;
-        var currentDirectory = _currentDirectoryReader.Read(processId);
+        var parentMap = GetProcessParentMap(cancellationToken);
+        var currentDirectory = _currentDirectoryReader.Read(processId, parentMap);
         var workingDirectory = ProjectNameResolver.InferWorkingDirectory(commandLine, executablePath, currentDirectory);
         return new CachedProcessInfo(DateTimeOffset.UtcNow, executablePath, commandLine, workingDirectory);
     }

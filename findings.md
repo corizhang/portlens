@@ -592,5 +592,175 @@ PortLens 在功能上已经能满足个人开发者的日常需求，代码结�
 
 ---
 
+---
+
+## 2026-07-07 极端性能优化分析
+
+### 分析范围
+
+本次分析从系统调用、内存分配、线程阻塞、UI 渲染、网络 I/O、缓存策略六个维度对 PortLens 进行深度审查，目标是在保持功能稳定的前提下进一步压低 CPU、内存、延迟和子进程开销。分析覆盖：
+
+- `PortLens.Core/Services/PortScanner.cs` 扫描管线
+- `ProcessInspector.cs` / `ProcessCommandLineReader.cs` / `ProcessCurrentDirectoryReader.cs` / `ProcessTreeReader.cs` 进程信息读取
+- `FrameworkDetector.cs` / `ProjectNameResolver.cs` / `ProjectRootResolver.cs` 推断逻辑
+- `MainWindow.xaml.cs` / `MainWindowViewModel.cs` / `TrayIconService.cs` UI 与调度
+- `FileLogger.cs` / `UpdateCheckService.cs` / `AutoUpdateService.cs` I/O 与网络
+- `SettingsDialog.xaml.cs` / `FontService.cs` 设置对话框与字体枚举
+
+### 关键发现（按影响程度排序）
+
+#### 1. 【致命】`ProcessTreeReader` 仍通过 PowerShell/CIM 读取进程树
+
+- **位置**：`work/PortLens.Core/Services/ProcessTreeReader.cs:105-138`
+- **问题**：每次缓存过期（60s）就启动 `powershell.exe`，执行 `Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress`，再 JSON 解析。一个 `powershell.exe` 启动就约 80-150ms、数十 MB 内存，且与命令行读取器分开执行，无法共享快照。
+- **影响**：在 5s 刷新间隔下，每 12 次扫描会触发一次；若用户快速刷新或首次扫描，立刻spawn 子进程。Windows Defender/AMSI 还会进一步拖慢。
+- **优化方向**：
+  - 使用 `NtQuerySystemInformation` + `SystemProcessInformation`（info class 5）一次性读取系统中所有进程的 PID、Parent PID、句柄数等，0 子进程开销。
+  - 或先用 P/Invoke 到 `CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS)` 遍历进程树，也比 PowerShell 快 1-2 个数量级。
+  - 与 `ProcessCurrentDirectoryReader` 共享同一个进程枚举快照，避免重复系统调用。
+- **预期收益**：消除最后一个外部子进程，扫描期间 `powershell.exe` 出现次数降为 0；首次扫描延迟降低 100-300ms。
+
+#### 2. 【高】`FileLogger` 同步写文件且全局加锁
+
+- **位置**：`work/PortLens.Desktop/Services/FileLogger.cs:47-78`
+- **问题**：所有 Warning/Error 日志都走 `lock (Lock)` 后调用 `File.AppendAllText`。该锁是进程全局的，任何扫描线程或 UI 线程日志都会串行阻塞；高频扫描下竞争明显。
+- **影响**：日志高峰时可能阻塞扫描线程数十毫秒，极端情况下拖慢刷新。
+- **优化方向**：
+  - 改用 `System.Threading.Channels.Channel<string>` + 单后台线程批量写入。
+  - 后台线程每秒 flush 一次，或队列满 100 条时 flush，减少文件 I/O 次数。
+  - 保留“日志不能抛异常”的兜底行为。
+- **预期收益**：日志写入从同步阻塞变为异步排队，扫描线程零阻塞；I/O 次数降低 5-20 倍。
+
+#### 3. 【高】`HttpClient` 默认 100s 超时且无重试
+
+- **位置**：`work/PortLens.Desktop/ServiceRegistration.cs:29-30`、`UpdateCheckService.cs:22-53`、`AutoUpdateService.cs:34-55`
+- **问题**：`AddHttpClient<UpdateCheckService>()` 未配置 `Timeout`、`PolicyHandler` 或 `IHttpClientFactory` 命名客户端。GitHub API 抖动或企业代理下，更新检查可能挂 100s；自动更新下载失败后没有重试。
+- **影响**：首次启动后 `Loaded` 事件触发更新检查，若网络异常会导致启动窗口无响应 100s；下载 MSI 失败后用户体验差。
+- **优化方向**：
+  - 配置 `HttpClient.Timeout = TimeSpan.FromSeconds(15)`。
+  - 引入 Polly 策略：更新检查重试 2 次（指数退避），下载重试 1 次。
+  - `UpdateCheckService.CheckAsync` 始终携带 `CancellationToken` 并在 `App.OnStartup` 阶段超时可控。
+- **预期收益**：网络异常时最长等待从 100s 降至 <30s，启动不会被卡死。
+
+#### 4. 【高】`ProcessInspector.CaptureSnapshot` 枚举所有进程
+
+- **位置**：`work/PortLens.Core/Services/ProcessInspector.cs:40-78`
+- **问题**：每次扫描调用 `Process.GetProcesses()`，返回系统中全部 `Process` 对象并逐一 Dispose。虽然只保留 TCP 表中的 PID，但仍为所有进程分配对象和句柄。
+- **影响**：在进程数 300+ 的系统上，每次扫描分配数万个对象，增加 GC 压力。
+- **优化方向**：
+  - 改为仅对 `liveProcessIds` 调用 `Process.GetProcessById`，并用 `try/catch` 处理已退出进程；这减少大部分对象分配。
+  - 更进一步可改为 `NtQuerySystemInformation(SystemProcessInformation)` 一次性读取全部进程属性，避免 `Process` 对象和重复句柄。
+  - 与进程树读取器共享同一个原生快照。
+- **预期收益**：扫描内存分配降低 30-60%，GC 频率下降。
+
+#### 5. 【中】`FontService.GetInstalledFontFamilies` 每次设置对话框都重新枚举
+
+- **位置**：`work/PortLens.Desktop/Services/FontService.cs:9-17`、`SettingsDialog.xaml.cs:123-152`
+- **问题**：打开设置对话框时创建 `InstalledFontCollection`、读取系统字体、排序，生成 ComboBoxItem。系统字体多时耗时 50-200ms。
+- **影响**：设置对话框打开延迟明显，且每次都重复。
+- **优化方向**：
+  - 在 `FontService` 中缓存字体列表（系统字体在会话期间基本不变），或使用 `Lazy<IReadOnlyList<string>>`。
+  - ComboBox 使用虚拟化（`VirtualizingStackPanel.IsVirtualizing="True"`），避免一次性实例化上千个 ComboBoxItem。
+- **预期收益**：设置对话框打开时间从 100-300ms 降至 <20ms。
+
+#### 6. 【中】`FrameworkDetector.InferFramework` 每次调用都分配大字符串
+
+- **位置**：`work/PortLens.Core/Services/FrameworkDetector.cs:12`
+- **问题**：`var text = $"{entry.ProcessName} {entry.CommandLine} {entry.WorkingDirectory} {entry.ExecutablePath}".ToLowerInvariant();` 把四条字符串拼接成一条大写字符串再 ToLower，每次 `EnrichDetails` 都执行。
+- **影响**：长命令行（如 Spring Boot/Maven）时频繁分配大字符串，且包含大量不必检查的目录路径。
+- **优化方向**：
+  - 改为按优先级分段匹配：先匹配 `ProcessName`，再匹配 `CommandLine`，命中即返回，避免拼接和 ToLower。
+  - 对已知框架使用 `ReadOnlySpan<char>` 和 `MemoryExtensions.Contains`（.NET 10 支持），减少分配。
+  - 将框架规则预编译为 `SearchValues<string>` 或 `Aho-Corasick` 字典，一次扫描即可多模式匹配。
+- **预期收益**：每个端口的框架推断分配从 O(n) 字符串降至接近 0；扫描吞吐量提升 10-20%。
+
+#### 7. 【中】`ProjectRootResolver.HasRootMarker` 深度路径重复文件系统探测
+
+- **位置**：`work/PortLens.Core/Services/ProjectRootResolver.cs:143-180`
+- **问题**：对每个工作目录从叶子到根逐层检查 `.git`、`.idea`、`.vscode`、`pnpm-workspace.yaml`、`go.mod`、*.sln、package.json 等 marker。深层路径可能触发 10-20 次文件系统调用，且同一目录在不同条目间重复探测。
+- **影响**：文件系统调用是扫描中除原生 API 外最慢的操作之一，尤其机械硬盘/网络驱动器。
+- **优化方向**：
+  - 添加目录级 TTL 缓存（如 30s），缓存 `DirectoryInfo.FullName -> DirectoryInfo? rootMarker`，避免重复探测。
+  - 调整 marker 检查顺序，把 `.git`、`.idea`、`.sln` 等高命中 marker 放前面，低命中放后面。
+  - 异步预热常用根目录（从上次扫描结果中复用）。
+- **预期收益**：文件系统调用减少 50-80%，扫描延迟降低。
+
+#### 8. 【中】`MainWindowViewModel.ApplyEntries` 仍新建 `List<PortEntryViewModel>` 和 `HashSet<PortEntryKey>`
+
+- **位置**：`work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs:336-363`
+- **问题**：每次扫描都新建 `liveKeys` HashSet 和 `ordered` List。虽然 diff 逻辑已优化为批量 Reset，但仍产生大量中间集合。
+- **优化方向**：
+  - 复用静态字段或线程本地 `HashSet<PortEntryKey>`、`List<PortEntryViewModel>`，扫描结束后 `Clear()`。
+  - 在 `ApplyEntries` 中先计算变更集，再调用 `ResetTo`，避免构建完整 `ordered` 列表。
+- **预期收益**：5s 刷新下 GC 压力进一步下降，高频刷新更稳定。
+
+#### 9. 【中】`ProcessCurrentDirectoryReader` 对父/祖父进程重复 WMI 查询
+
+- **位置**：`work/PortLens.Core/Services/ProcessCurrentDirectoryReader.cs:135-179`
+- **问题**：`ReadFromWmi` 和 `GetParentProcessId` 各触发一次 WMI/ManagementObjectSearcher 查询。读取当前目录时若进入父/祖父 fallback，最多 6 次 WMI 查询。
+- **影响**：WMI 查询慢且有 COM 初始化开销，多个条目同时 fallback 时显著拖慢扫描。
+- **优化方向**：
+  - 与进程树读取器共享同一个原生进程快照，从快照中直接取 ParentProcessId，无需 WMI。
+  - 对 WMI 查询结果添加 5-10s 进程级缓存。
+- **预期收益**：Java/Spring Boot 等需要父目录回退的场景扫描延迟降低。
+
+#### 10. 【低-中】UI 层面仍有可优化点
+
+- **位置**：`TrayIconService.cs:94-140`、`SettingsDialog.xaml.cs:233-258`
+- **问题**：
+  - 每次右键托盘都重新构建 `ContextMenu` 和全部 `MenuItem`。
+  - 设置对话框 About 页每次打开都重新下载 shields.io 徽章图片（BitmapImage 无缓存）。
+- **优化方向**：
+  - 托盘菜单缓存一份，仅在状态变化时更新可用性/文案。
+  - 徽章图片本地缓存到 `%LocalAppData%/PortLens/badges/` 或应用内内存缓存。
+- **预期收益**：UI 交互响应更快，减少网络请求。
+
+#### 11. 【低】命令行空白归一化使用 Compiled Regex
+
+- **位置**：`work/PortLens.Core/Services/ProcessCommandLineReader.cs:24、242-250`
+- **问题**：`CommandLineRegex = new(@"\s+", RegexOptions.Compiled)` 对每个命令行执行 `Regex.Replace`。虽然 Compiled 已优化，但仍比简单循环慢。
+- **优化方向**：改为自定义 `NormalizeCommandLine` 方法，使用 `StringBuilder` 或 `ValueStringBuilder` 手动合并连续空白。
+- **预期收益**：命令行读取微优化，单条节省微秒级，扫描量大时累计可感。
+
+#### 12. 【低】`AppMetricsTimer` 每秒运行，即使窗口隐藏
+
+- **位置**：`work/PortLens.Desktop/MainWindow.xaml.cs:92-94`
+- **问题**：CPU/内存指标计时器每秒触发，无论窗口是否可见或最小化到托盘。
+- **优化方向**：在窗口隐藏/最小化时暂停 `_appMetricsTimer`，恢复时立即更新一次。
+- **预期收益**：后台资源占用微降，笔记本电脑续航受益。
+
+### 优先级矩阵
+
+| 优先级 | 项目 | 预期收益 | 改动风险 | 建议实施顺序 |
+|--------|------|----------|----------|--------------|
+| P0 | 用原生 API 替换 `ProcessTreeReader` 的 PowerShell | 消除子进程、显著降低延迟 | 中（需保证 x64 稳定） | 1 |
+| P0 | `FileLogger` 异步化 | 消除全局锁、避免阻塞扫描 | 低 | 2 |
+| P1 | `HttpClient` 超时/重试策略 | 防止启动/更新卡死 | 低 | 3 |
+| P1 | 进程快照改用原生枚举/按需 `GetProcessById` | 降低内存分配 | 中 | 4 |
+| P1 | 字体列表缓存 + ComboBox 虚拟化 | 设置对话框秒开 | 低 | 5 |
+| P2 | `FrameworkDetector` 避免大字符串拼接 | 降低分配、提升推断速度 | 低 | 6 |
+| P2 | `ProjectRootResolver` 目录 marker 缓存 | 减少文件系统调用 | 低 | 7 |
+| P2 | 复用 diff 集合对象 | 降低 GC 压力 | 低 | 8 |
+| P2 | 共享进程快照减少 WMI 回退查询 | 降低 WMI 开销 | 中 | 9 |
+| P3 | UI 托盘菜单/徽章缓存 | 交互响应优化 | 低 | 10 |
+| P3 | 命令行归一化无 Regex | 微优化 | 低 | 11 |
+| P3 | AppMetricsTimer 后台暂停 | 微降资源占用 | 低 | 12 |
+
+### 实施建议
+
+1. **先打两口深井**：P0 的进程树原生化和日志异步化会带来最显著的质变，建议先做。
+2. **为性能建立度量**：新增 BenchmarkDotNet 基准（`PortLens.Core.Benchmarks`），重点测量 `PortScanner.Scan` 单次耗时、内存分配、GC 次数，避免“感觉优化”。
+3. **保持向后兼容**：所有原生 API 读取失败时回退到现有行为；`ProcessTreeReader` 可保留 PowerShell 作为最终 fallback，默认走原生路径。
+4. **分阶段提交**：每完成一个 P0/P1 项就构建/测试/提交，避免一次性大改难以回归定位。
+
+### 风险与回滚
+
+- **风险**：`NtQuerySystemInformation` 的 `SystemProcessInformation` 结构在不同 Windows 版本上有字段偏移差异，但 x64 上基本稳定；仍建议用单元测试和 smoke test 验证。
+- **风险**：日志异步化后崩溃前最后几条日志可能丢失；可添加 `AppDomain.UnhandledException` 中强制 flush。
+- **风险**：进程枚举改为按需后，某些系统进程无法打开导致数据缺失；行为与之前一致，可接受。
+- **回滚**：保留旧实现文件副本或在 git 历史中回退。
+
+---
+
 *每执行2次查看/浏览器/搜索操作后更新此文件*
 *防止视觉信息丢失*

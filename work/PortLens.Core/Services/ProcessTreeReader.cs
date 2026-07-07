@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
 namespace PortLens.Services;
@@ -10,23 +8,30 @@ public interface IProcessTreeReader
     void Prune(IEnumerable<int> liveProcessIds);
 }
 
+/// <summary>
+/// Reads the process parent/child graph from a native system-information snapshot,
+/// falling back to a PowerShell/CIM reader only when native access is unavailable.
+/// </summary>
 public sealed class ProcessTreeReader : IProcessTreeReader
 {
     private static readonly TimeSpan SnapshotTtl = TimeSpan.FromSeconds(60);
 
     private readonly ILogger<ProcessTreeReader> _logger;
+    private readonly PowerShellProcessTreeReader _fallback;
     private Snapshot? _snapshot;
     private readonly object _snapshotLock = new();
+    private bool _nativeFailed;
 
     public ProcessTreeReader(ILogger<ProcessTreeReader> logger)
     {
         _logger = logger;
+        _fallback = new PowerShellProcessTreeReader(logger);
     }
 
     public int CountDescendants(int processId, CancellationToken cancellationToken = default)
     {
-        var childrenByParent = GetSnapshot(cancellationToken);
-        if (childrenByParent is null)
+        var snapshot = GetSnapshot(cancellationToken);
+        if (snapshot is null)
         {
             return 0;
         }
@@ -37,7 +42,7 @@ public sealed class ProcessTreeReader : IProcessTreeReader
         while (stack.Count > 0)
         {
             var parent = stack.Pop();
-            if (!childrenByParent.TryGetValue(parent, out var children))
+            if (!snapshot.ChildrenByParent.TryGetValue(parent, out var children))
             {
                 continue;
             }
@@ -52,6 +57,12 @@ public sealed class ProcessTreeReader : IProcessTreeReader
         return count;
     }
 
+    public IReadOnlyDictionary<int, int>? GetParentMap(CancellationToken cancellationToken = default)
+    {
+        var snapshot = GetSnapshot(cancellationToken);
+        return snapshot?.ParentByChild;
+    }
+
     public void Prune(IEnumerable<int> liveProcessIds)
     {
         lock (_snapshotLock)
@@ -62,7 +73,7 @@ public sealed class ProcessTreeReader : IProcessTreeReader
             }
 
             var live = liveProcessIds.ToHashSet();
-            var pruned = new Dictionary<int, IReadOnlyList<int>>();
+            var prunedChildren = new Dictionary<int, IReadOnlyList<int>>();
             foreach (var pair in _snapshot.ChildrenByParent)
             {
                 if (live.Contains(pair.Key))
@@ -70,26 +81,63 @@ public sealed class ProcessTreeReader : IProcessTreeReader
                     var filteredChildren = pair.Value.Where(child => live.Contains(child)).ToList();
                     if (filteredChildren.Count > 0)
                     {
-                        pruned[pair.Key] = filteredChildren;
+                        prunedChildren[pair.Key] = filteredChildren;
                     }
                 }
             }
 
-            _snapshot = new Snapshot(pruned, _snapshot.CachedAt);
+            var prunedParents = _snapshot.ParentByChild
+                .Where(pair => live.Contains(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value);
+
+            _snapshot = new Snapshot(prunedChildren, prunedParents, _snapshot.CachedAt);
         }
     }
 
-    private IReadOnlyDictionary<int, IReadOnlyList<int>>? GetSnapshot(CancellationToken cancellationToken)
+    private Snapshot? GetSnapshot(CancellationToken cancellationToken)
     {
+        if (_nativeFailed)
+        {
+            return GetFallbackSnapshot(cancellationToken);
+        }
+
         lock (_snapshotLock)
         {
             if (_snapshot is { IsExpired: false })
             {
-                return _snapshot.ChildrenByParent;
+                return _snapshot;
             }
         }
 
-        var childrenByParent = FetchSnapshot(cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var native = NativeProcessSnapshot.Capture();
+            if (native is not null)
+            {
+                lock (_snapshotLock)
+                {
+                    _snapshot = new Snapshot(native.ChildrenByParent, native.ParentByChild, DateTimeOffset.UtcNow);
+                    return _snapshot;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Native process snapshot failed; switching to PowerShell fallback.");
+            _nativeFailed = true;
+        }
+
+        return GetFallbackSnapshot(cancellationToken);
+    }
+
+    private Snapshot? GetFallbackSnapshot(CancellationToken cancellationToken)
+    {
+        var childrenByParent = Safe(() => _fallback.CaptureSnapshot(cancellationToken));
         if (childrenByParent is null)
         {
             return null;
@@ -97,87 +145,9 @@ public sealed class ProcessTreeReader : IProcessTreeReader
 
         lock (_snapshotLock)
         {
-            _snapshot = new Snapshot(childrenByParent, DateTimeOffset.UtcNow);
-            return _snapshot.ChildrenByParent;
+            _snapshot = new Snapshot(childrenByParent, new Dictionary<int, int>(), DateTimeOffset.UtcNow);
+            return _snapshot;
         }
-    }
-
-    private IReadOnlyDictionary<int, IReadOnlyList<int>>? FetchSnapshot(CancellationToken cancellationToken)
-    {
-        return Safe(() =>
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = "powershell.exe",
-                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command \"Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId | ConvertTo-Json -Compress\"",
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
-            };
-
-            using var process = Process.Start(startInfo);
-            if (process is null)
-            {
-                return null;
-            }
-
-            using (cancellationToken.Register(() => Safe(() => process.Kill(entireProcessTree: true))))
-            {
-                var output = process.StandardOutput.ReadToEnd();
-                if (!process.WaitForExit(1200))
-                {
-                    Safe(() => process.Kill(entireProcessTree: true));
-                    return null;
-                }
-
-                cancellationToken.ThrowIfCancellationRequested();
-                return ParseSnapshot(output);
-            }
-        });
-    }
-
-    private static IReadOnlyDictionary<int, IReadOnlyList<int>>? ParseSnapshot(string output)
-    {
-        if (string.IsNullOrWhiteSpace(output))
-        {
-            return null;
-        }
-
-        var childrenByParent = new Dictionary<int, List<int>>();
-        using var document = JsonDocument.Parse(output);
-        if (document.RootElement.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var element in document.RootElement.EnumerateArray())
-            {
-                AddProcess(element, childrenByParent);
-            }
-        }
-        else if (document.RootElement.ValueKind == JsonValueKind.Object)
-        {
-            AddProcess(document.RootElement, childrenByParent);
-        }
-
-        return childrenByParent.ToDictionary(pair => pair.Key, pair => (IReadOnlyList<int>)pair.Value);
-    }
-
-    private static void AddProcess(JsonElement element, Dictionary<int, List<int>> childrenByParent)
-    {
-        if (!element.TryGetProperty("ProcessId", out var pidElement) ||
-            !pidElement.TryGetInt32(out var processId) ||
-            !element.TryGetProperty("ParentProcessId", out var parentElement) ||
-            !parentElement.TryGetInt32(out var parentProcessId))
-        {
-            return;
-        }
-
-        if (!childrenByParent.TryGetValue(parentProcessId, out var children))
-        {
-            children = new List<int>();
-            childrenByParent[parentProcessId] = children;
-        }
-
-        children.Add(processId);
     }
 
     private T? Safe<T>(Func<T?> action)
@@ -188,32 +158,25 @@ public sealed class ProcessTreeReader : IProcessTreeReader
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to count process descendants.");
+            _logger.LogWarning(ex, "Process tree snapshot failed.");
             return default;
-        }
-    }
-
-    private void Safe(Action action)
-    {
-        try
-        {
-            action();
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to count process descendants.");
         }
     }
 
     private sealed class Snapshot
     {
-        public Snapshot(IReadOnlyDictionary<int, IReadOnlyList<int>> childrenByParent, DateTimeOffset cachedAt)
+        public Snapshot(
+            IReadOnlyDictionary<int, IReadOnlyList<int>> childrenByParent,
+            IReadOnlyDictionary<int, int> parentByChild,
+            DateTimeOffset cachedAt)
         {
             ChildrenByParent = childrenByParent;
+            ParentByChild = parentByChild;
             CachedAt = cachedAt;
         }
 
         public IReadOnlyDictionary<int, IReadOnlyList<int>> ChildrenByParent { get; }
+        public IReadOnlyDictionary<int, int> ParentByChild { get; }
         public DateTimeOffset CachedAt { get; }
         public bool IsExpired => DateTimeOffset.UtcNow - CachedAt > SnapshotTtl;
     }

@@ -1,6 +1,60 @@
 # 进度日志
 
-## 会话：2026-07-03
+## 会话：2026-07-07
+
+### 阶段：极端性能优化分析
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 读取 `ProcessTreeReader.cs`、`FileLogger.cs`、`PortScanner.cs`、`ProcessInspector.cs`、`MainWindowViewModel.cs`、`MainWindow.xaml.cs`、`ServiceRegistration.cs`、`FontService.cs`、`UpdateCheckService.cs`、`AutoUpdateService.cs`、`FrameworkDetector.cs`、`ProjectRootResolver.cs` 等关键文件
+  - 识别出 12 项性能优化点，按影响程度排序
+  - 更新 `findings.md`，新增“2026-07-07 极端性能优化分析”章节
+  - 更新 `task_plan.md`，新增 P0/P1/P2/P3/P4 优化阶段
+- 关键发现：
+  - `ProcessTreeReader` 仍通过 PowerShell/CIM 读取进程树，是最大瓶颈
+  - `FileLogger` 同步写文件并全局加锁，会阻塞扫描线程
+  - `HttpClient` 默认 100s 超时且无重试，可能导致启动/更新卡死
+  - `ProcessInspector.CaptureSnapshot` 全枚举所有进程对象
+  - `FontService` 每次打开设置对话框都重新枚举系统字体
+  - `FrameworkDetector` 每次推断都分配大字符串
+  - `ProjectRootResolver` 对同一目录重复进行多次文件系统探测
+- 下一步：
+  - 实施 P0-2：`FileLogger` 异步化
+
+### 阶段 P0-1：进程树读取原生 API 化
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 新增 `NativeProcessSnapshot`，使用 `NtQuerySystemInformation(SystemProcessInformation)` 一次性读取所有进程 PID、Parent PID、进程名
+  - 重写 `ProcessTreeReader`：默认走原生快照，失败时回退到 `PowerShellProcessTreeReader`
+  - 新增 `PowerShellProcessTreeReader` 作为 fallback，保留原有 PowerShell/CIM 行为
+  - 更新 `ProcessCurrentDirectoryReader`，新增传入 `IReadOnlyDictionary<int,int>` 的重载，优先从原生快照获取父进程 PID，减少 WMI 查询
+  - 更新 `ProcessInspector`，在读取进程详情时传递父进程映射快照
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（61 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示且未启动 `powershell.exe` 子进程
+- 创建/修改的文件：
+  - `work/PortLens.Core/Services/NativeProcessSnapshot.cs`（新增）
+  - `work/PortLens.Core/Services/PowerShellProcessTreeReader.cs`（新增）
+  - `work/PortLens.Core/Services/ProcessTreeReader.cs`
+  - `work/PortLens.Core/Services/ProcessCurrentDirectoryReader.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `task_plan.md`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 61 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示且无 PowerShell 子进程 | PID=4756，Children=0，Smoke test passed | 通过 |
+- 下一步：
+  - 实施 P0-2：`FileLogger` 异步化
+
+---
+
 
 ### 阶段 1：工程基础建设
 - **状态：** complete

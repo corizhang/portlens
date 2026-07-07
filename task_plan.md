@@ -6,7 +6,7 @@
 
 ## 当前阶段
 
-阶段 8
+阶段 P0-2：`FileLogger` 异步化（进行中）
 
 ## 各阶段
 
@@ -167,12 +167,100 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 R3 已完成
+阶段 P0-2：`FileLogger` 异步化（进行中）
 
-1. 是否保留当前的 WPF 代码隐藏风格，还是全面迁移到 MVVM？
-2. 是否引入第三方 DI 容器，还是使用轻量级的 `Microsoft.Extensions.DependencyInjection`？
-3. 是否优先添加集成测试（需要管理员权限的真实进程/端口扫描），还是先做纯单元测试？
-4. 深色模式是否纳入本次调整范围？
+### 阶段 P0：性能瓶颈根治（高优先级）
+
+#### P0-1：用原生 API 替换 `ProcessTreeReader` 的 PowerShell/CIM
+- [x] 调研 `NtQuerySystemInformation` / `SystemProcessInformation` 在 x64 Windows 上的结构稳定性
+- [x] 实现 `NativeProcessSnapshot` 或类似类，一次性读取所有进程 PID、Parent PID、Session ID 等
+- [x] 重写 `ProcessTreeReader.CountDescendants` 基于原生快照构建子进程图
+- [x] 保留 PowerShell 作为最终 fallback（默认不启用）
+- [x] 更新 `ProcessCurrentDirectoryReader` 共享同一快照获取 ParentProcessId，减少 WMI 查询
+- [x] 新增/更新单元测试，验证子进程计数与 PowerShell 结果一致
+- [x] 构建/测试/发布/smoke test/提交
+- **状态：** complete
+
+#### P0-2：`FileLogger` 异步化
+- [ ] 引入 `System.Threading.Channels.Channel<string>`
+- [ ] 新增后台写入线程，批量 flush（1s 或 100 条阈值）
+- [ ] `AppDomain.UnhandledException` 中强制 flush，避免崩溃丢日志
+- [ ] 构建/测试/发布/smoke test/提交
+- **状态：** in_progress
+
+### 阶段 P1：关键 I/O 与枚举优化（中-高优先级）
+
+#### P1-1：`HttpClient` 超时与重试策略
+- [ ] 为 `UpdateCheckService` / `AutoUpdateService` 配置 15s 超时
+- [ ] 引入 Polly 重试策略：更新检查指数退避 2 次，下载重试 1 次
+- [ ] 确保所有网络调用传播 `CancellationToken`
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P1-2：进程快照按需枚举或原生化
+- [ ] 评估 `Process.GetProcessById(livePids)` 方案 vs 复用 P0-1 原生快照
+- [ ] 替换 `ProcessInspector.CaptureSnapshot` 中的 `Process.GetProcesses()` 全枚举
+- [ ] 验证系统进程/已退出进程行为与之前一致
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P1-3：字体列表缓存与 ComboBox 虚拟化
+- [ ] `FontService.GetInstalledFontFamilies` 改为 Lazy 缓存
+- [ ] `SettingsDialog` 中两个字体 ComboBox 启用虚拟化
+- [ ] 验证设置对话框打开速度
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+### 阶段 P2：算法与集合优化（中优先级）
+
+#### P2-1：`FrameworkDetector` 避免大字符串拼接
+- [ ] 改为按 ProcessName、CommandLine、路径分段匹配
+- [ ] 使用 `ReadOnlySpan<char>` / `SearchValues<string>` 减少分配
+- [ ] 保持现有框架识别准确率
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P2-2：`ProjectRootResolver` 目录 marker 缓存
+- [ ] 添加 `ConcurrentDictionary<string, DirectoryInfo?>` 缓存，TTL 30s
+- [ ] 调整 marker 检查顺序，高命中优先
+- [ ] 验证聚合分组行为不变
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P2-3：复用 `ApplyEntries` 中间集合
+- [ ] 复用 `HashSet<PortEntryKey>` 和 `List<PortEntryViewModel>`
+- [ ] 确保线程安全（每次扫描单线程在后台，主线程访问 _entries）
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+### 阶段 P3：UI 与微优化（低优先级）
+
+#### P3-1：托盘菜单缓存与 About 徽章缓存
+- [ ] 托盘 `ContextMenu` 只构建一次，状态变化时更新
+- [ ] shields.io 徽章图片本地/内存缓存
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P3-2：命令行空白归一化去 Regex
+- [ ] 用 `StringBuilder`/`ValueStringBuilder` 替换 `Regex.Replace`
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+#### P3-3：`AppMetricsTimer` 后台暂停
+- [ ] 窗口隐藏/最小化时暂停，恢复时立即更新
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+### 阶段 P4：性能基准与回归防护
+
+- [ ] 新增 `PortLens.Core.Benchmarks` 项目（BenchmarkDotNet）
+- [ ] 基准覆盖：`PortScanner.Scan`、`FrameworkDetector.InferFramework`、`ProjectRootResolver.Resolve`、`ProcessTreeReader.CountDescendants`
+- [ ] 在 CI 中可选运行基准（PR 不阻塞，但记录结果）
+- [ ] 构建/测试/发布/提交
+- **状态：** pending
+
+## 当前阶段
+阶段 P0-1（用原生 API 替换 `ProcessTreeReader` 的 PowerShell/CIM）
 
 ## 已做决策
 

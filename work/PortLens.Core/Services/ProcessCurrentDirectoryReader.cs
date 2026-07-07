@@ -29,6 +29,11 @@ public sealed class ProcessCurrentDirectoryReader
 
     public string? Read(int processId)
     {
+        return Read(processId, parentByChild: null);
+    }
+
+    public string? Read(int processId, IReadOnlyDictionary<int, int>? parentByChild)
+    {
         var pebDirectory = ReadFromPeb(processId);
         if (IsValidProjectDirectory(pebDirectory))
         {
@@ -41,7 +46,7 @@ public sealed class ProcessCurrentDirectoryReader
             return wmiDirectory;
         }
 
-        var parentId = GetParentProcessId(processId);
+        var parentId = GetParentProcessId(processId, parentByChild);
         if (parentId.HasValue && parentId.Value > 0)
         {
             var parentPebDirectory = ReadFromPeb(parentId.Value);
@@ -56,7 +61,7 @@ public sealed class ProcessCurrentDirectoryReader
                 return parentWmiDirectory;
             }
 
-            var grandparentId = GetParentProcessId(parentId.Value);
+            var grandparentId = GetParentProcessId(parentId.Value, parentByChild);
             if (grandparentId.HasValue && grandparentId.Value > 0)
             {
                 var grandparentPebDirectory = ReadFromPeb(grandparentId.Value);
@@ -155,7 +160,17 @@ public sealed class ProcessCurrentDirectoryReader
         return null;
     }
 
-    private static int? GetParentProcessId(int processId)
+    private static int? GetParentProcessId(int processId, IReadOnlyDictionary<int, int>? parentByChild)
+    {
+        if (parentByChild is not null && parentByChild.TryGetValue(processId, out var parentId))
+        {
+            return parentId > 0 ? parentId : null;
+        }
+
+        return GetParentProcessIdFromWmi(processId);
+    }
+
+    private static int? GetParentProcessIdFromWmi(int processId)
     {
         try
         {
