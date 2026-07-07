@@ -809,3 +809,25 @@
   | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=23704，Children=0，Smoke test passed | 通过 |
 - 下一步：
   - 性能优化计划 P0-P4 已全部完成；CI 中可选运行基准留待后续实施
+
+### 阶段：发布 v1.0.9
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 运行 `dotnet build PortLens.sln --configuration Release` 验证 Release 构建（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln --configuration Release` 验证（74 个测试全部通过）
+  - 运行 `scripts/publish.ps1 -Version '1.0.9' -AssemblyVersion '1.0.9.0' -FileVersion '1.0.9.0' -InformationalVersion '1.0.9'` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+  - 创建并推送 `v1.0.9` tag 到 GitHub 与 Gitea，触发 GitHub Actions Release 工作流
+- 创建/修改的文件：
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | Release 构建 | `dotnet build PortLens.sln --configuration Release` | 成功 | 0 警告 0 错误 | 通过 |
+  | Release 单元测试 | `dotnet test PortLens.sln --configuration Release` | 全部通过 | 74 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=25484，Children=0，Smoke test passed | 通过 |
+  | Tag 推送 | `git push github v1.0.9 && git push gitea v1.0.9` | 两个远端均收到 tag | GitHub 与 Gitea 均返回 `[new tag] v1.0.9 -> v1.0.9` | 通过 |
+- 下一步：
+  - 等待 GitHub Actions 构建并发布 Release v1.0.9
