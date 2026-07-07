@@ -370,7 +370,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             }
         }
 
-        _entries.ResetTo(_orderedBuffer);
+        var needsReset = _entries.Count != _orderedBuffer.Count;
+        if (!needsReset)
+        {
+            for (var i = 0; i < _entries.Count; i++)
+            {
+                if (!ReferenceEquals(_entries[i], _orderedBuffer[i]))
+                {
+                    needsReset = true;
+                    break;
+                }
+            }
+        }
+
+        if (needsReset)
+        {
+            _entries.ResetTo(_orderedBuffer);
+        }
+
         _ = RefreshSearchFilterAsync();
     }
 
