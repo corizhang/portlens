@@ -253,14 +253,14 @@
 
 ### 阶段 P4：性能基准与回归防护
 
-- [ ] 新增 `PortLens.Core.Benchmarks` 项目（BenchmarkDotNet）
-- [ ] 基准覆盖：`PortScanner.Scan`、`FrameworkDetector.InferFramework`、`ProjectRootResolver.Resolve`、`ProcessTreeReader.CountDescendants`
+- [x] 新增 `PortLens.Core.Benchmarks` 项目（BenchmarkDotNet）
+- [x] 基准覆盖：`PortScanner.Scan`、`FrameworkDetector.InferFramework`、`ProjectRootResolver.Resolve`、`ProcessTreeReader.CountDescendants`
 - [ ] 在 CI 中可选运行基准（PR 不阻塞，但记录结果）
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 ## 当前阶段
-阶段 P4-1：BenchmarkDotNet 性能基准（进行中）
+阶段 P4-1：BenchmarkDotNet 性能基准（已完成）
 
 ## 已做决策
 

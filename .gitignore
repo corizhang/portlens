@@ -18,3 +18,6 @@ outputs/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# BenchmarkDotNet output
+BenchmarkDotNet.Artifacts/

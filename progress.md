@@ -774,3 +774,38 @@
   | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=35424，Children=0，Smoke test passed | 通过 |
 - 下一步：
   - 实施 P4-1：BenchmarkDotNet 性能基准
+
+### 阶段 P4-1：BenchmarkDotNet 性能基准
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 新建 `work/PortLens.Benchmarks` 控制台项目，引用 `BenchmarkDotNet` 与 `PortLens.Core`
+  - 将基准项目加入 `PortLens.sln`
+  - 新增基准类：
+    - `ScanBenchmark`：测量 `PortScanner.Scan` 在 `ShowAll=true/false` 下的耗时与分配
+    - `FrameworkDetectionBenchmark`：测量 `FrameworkDetector.InferFramework` 对 Vite/.NET/Spring 的推断
+    - `ProjectRootResolutionBenchmark`：测量 `ProjectRootResolver.Resolve` 与 `ComputeRelativeSubtitle`
+    - `ProcessTreeBenchmark`：测量 `ProcessTreeReader.CountDescendants`
+  - 所有基准类标记 `[MemoryDiagnoser]`
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（74 个测试全部通过）
+  - 运行 `dotnet run --project work/PortLens.Benchmarks/PortLens.Benchmarks.csproj --configuration Release -- --filter *FrameworkDetectionBenchmark* --job short` 验证 BenchmarkDotNet 正常产出报告
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Benchmarks/PortLens.Benchmarks.csproj`（新增）
+  - `work/PortLens.Benchmarks/Program.cs`（新增）
+  - `work/PortLens.Benchmarks/PortLensBenchmarks.cs`（新增）
+  - `PortLens.sln`
+  - `task_plan.md`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 74 个测试通过，0 失败 | 通过 |
+  | 基准运行 | `dotnet run --project work/PortLens.Benchmarks/PortLens.Benchmarks.csproj --configuration Release -- --filter *FrameworkDetectionBenchmark* --job short` | 成功产出报告 | FrameworkDetectionBenchmark 3 个方法均完成 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=23704，Children=0，Smoke test passed | 通过 |
+- 下一步：
+  - 性能优化计划 P0-P4 已全部完成；CI 中可选运行基准留待后续实施
