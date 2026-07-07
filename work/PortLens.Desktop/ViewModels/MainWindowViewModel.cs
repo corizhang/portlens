@@ -18,6 +18,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly ILogger<MainWindowViewModel> _logger;
     private readonly SuppressibleObservableCollection<PortEntryViewModel> _entries = new();
     private readonly Dictionary<PortEntryKey, PortEntryViewModel> _entriesByKey = new();
+    private readonly HashSet<PortEntryKey> _liveKeysBuffer = new();
+    private readonly List<PortEntryViewModel> _orderedBuffer = new();
     private readonly object _refreshLock = new();
     private readonly DispatcherTimer _searchDebounceTimer;
     private CancellationTokenSource? _refreshCts;
@@ -335,30 +337,40 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private void ApplyEntries(IReadOnlyList<PortEntry> entries)
     {
-        var liveKeys = entries.Select(entry => entry.Key).ToHashSet();
-        foreach (var staleKey in _entriesByKey.Keys.Where(key => !liveKeys.Contains(key)).ToList())
+        _liveKeysBuffer.Clear();
+        foreach (var entry in entries)
+        {
+            _liveKeysBuffer.Add(entry.Key);
+        }
+
+        foreach (var staleKey in _entriesByKey.Keys.Where(key => !_liveKeysBuffer.Contains(key)).ToList())
         {
             _entriesByKey.Remove(staleKey);
         }
 
-        var ordered = new List<PortEntryViewModel>(entries.Count);
+        _orderedBuffer.Clear();
+        if (_orderedBuffer.Capacity < entries.Count)
+        {
+            _orderedBuffer.Capacity = entries.Count;
+        }
+
         foreach (var entry in entries)
         {
             var key = entry.Key;
             if (_entriesByKey.TryGetValue(key, out var existing))
             {
                 existing.Update(entry);
-                ordered.Add(existing);
+                _orderedBuffer.Add(existing);
             }
             else
             {
                 var created = new PortEntryViewModel(entry);
                 _entriesByKey[key] = created;
-                ordered.Add(created);
+                _orderedBuffer.Add(created);
             }
         }
 
-        _entries.ResetTo(ordered);
+        _entries.ResetTo(_orderedBuffer);
         _ = RefreshSearchFilterAsync();
     }
 
