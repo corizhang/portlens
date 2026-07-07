@@ -4,11 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project overview
 
-PortLens is a Windows-only WPF desktop app that monitors local TCP listening ports and surfaces development services. The repository uses a solution file and a three-project layout under `work/`:
+PortLens is a Windows-only WPF desktop app that monitors local TCP listening ports and surfaces development services. The repository uses a solution file and a four-project layout under `work/`:
 
 - `PortLens.Core` — .NET 10 class library that owns port scanning, process inspection, and framework inference.
 - `PortLens.Desktop` — .NET 10 WPF executable (`<UseWPF>true</UseWPF>`), references Core, and owns the UI, tray icon, settings, and user actions.
 - `PortLens.Core.Tests` — xUnit test project covering the pure logic in Core.
+- `PortLens.Benchmarks` — BenchmarkDotNet console project for core performance scenarios.
 
 ## Common commands
 
@@ -52,6 +53,20 @@ Optional parameters:
 ./scripts/publish.ps1 -Configuration Debug -Output outputs/PortLens
 ```
 
+### Benchmarks
+
+Run BenchmarkDotNet scenarios (builds the benchmark project in Release automatically):
+
+```powershell
+dotnet run --project work/PortLens.Benchmarks/PortLens.Benchmarks.csproj --configuration Release
+```
+
+Run a single benchmark quickly:
+
+```powershell
+dotnet run --project work/PortLens.Benchmarks/PortLens.Benchmarks.csproj --configuration Release -- --filter *FrameworkDetectionBenchmark* --job short
+```
+
 ### CI
 
 A GitHub Actions workflow in `.github/workflows/ci.yml` runs on pushes and PRs to `main`/`master`: restore, build, test, publish, and upload the `outputs/PortLensMaterial` artifact.
@@ -71,7 +86,7 @@ A GitHub Actions workflow in `.github/workflows/ci.yml` runs on pushes and PRs t
 
 `ProcessInspector` coordinates several focused services:
 
-- `ProcessCommandLineReader` fetches command lines via native Windows APIs (`NtQueryInformationProcess` with `ProcessCommandLineInformation`, falling back to PEB + `RTL_USER_PROCESS_PARAMETERS.CommandLine`), with no PowerShell/CIM overhead.
+- `ProcessCommandLineReader` fetches command lines via native Windows APIs (`NtQueryInformationProcess` with `ProcessCommandLineInformation`, falling back to PEB + `RTL_USER_PROCESS_PARAMETERS.CommandLine`), with no PowerShell/CIM overhead. Whitespace is collapsed by `CommandLineNormalizer`.
 - `ProcessCurrentDirectoryReader` reads the current working directory from the process PEB.
 - `ProcessTreeReader` counts child processes.
 - `FrameworkDetector` infers frameworks from a combined haystack of process name, command line, working directory, and executable path.
@@ -138,9 +153,11 @@ The UI uses MVVM and dependency injection:
 - Settings model/store: `work/PortLens.Desktop/Settings/DesktopSettings.cs`, `DesktopSettingsStore.cs`
 - Tests: `work/PortLens.Core.Tests/`
 - Native command-line reader: `work/PortLens.Core/Services/ProcessCommandLineReader.cs`
+- Command-line whitespace normalizer: `work/PortLens.Core/Services/CommandLineNormalizer.cs`
 - Process snapshot: `work/PortLens.Core/Models/ProcessSnapshot.cs`
 - Entry identity key: `work/PortLens.Core/Models/PortEntryKey.cs`
 - Bulk collection updates: `work/PortLens.Desktop/Collections/SuppressibleObservableCollection.cs`
 - Entry view model: `work/PortLens.Desktop/ViewModels/PortEntryViewModel.cs`
+- Benchmarks: `work/PortLens.Benchmarks/PortLensBenchmarks.cs`
 - Publish script: `scripts/publish.ps1`
 - CI workflow: `.github/workflows/ci.yml`
