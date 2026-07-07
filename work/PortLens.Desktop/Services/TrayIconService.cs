@@ -24,6 +24,11 @@ internal sealed class TrayIconService : IDisposable
     private readonly Action _exitApplication;
     private readonly Forms.NotifyIcon _notifyIcon;
     private System.Windows.Controls.ContextMenu? _contextMenu;
+    private System.Windows.Controls.TextBlock? _statusCountText;
+    private System.Windows.Controls.TextBlock? _statusSubText;
+    private System.Windows.Controls.MenuItem? _pauseResumeItem;
+    private System.Windows.Controls.MenuItem? _refreshItem;
+    private System.Windows.Controls.MenuItem? _copySummaryItem;
     private bool _disposed;
 
     public TrayIconService(
@@ -93,16 +98,29 @@ internal sealed class TrayIconService : IDisposable
 
     private void ShowContextMenu()
     {
-        CloseContextMenu();
+        if (_contextMenu is null)
+        {
+            _contextMenu = BuildContextMenu();
+        }
+
         SetForegroundWindow(new WindowInteropHelper(_owner).EnsureHandle());
 
+        var status = _getStatus();
+        UpdateContextMenuState(status);
+
         var cursor = Forms.Cursor.Position;
+        _contextMenu.PlacementTarget = _owner;
+        _contextMenu.Placement = PlacementMode.AbsolutePoint;
+        _contextMenu.HorizontalOffset = cursor.X;
+        _contextMenu.VerticalOffset = cursor.Y;
+        _contextMenu.IsOpen = true;
+        _contextMenu.Focus();
+    }
+
+    private System.Windows.Controls.ContextMenu BuildContextMenu()
+    {
         var menu = new System.Windows.Controls.ContextMenu
         {
-            PlacementTarget = _owner,
-            Placement = PlacementMode.AbsolutePoint,
-            HorizontalOffset = cursor.X,
-            VerticalOffset = cursor.Y,
             MinWidth = 230,
             Padding = new Thickness(4),
             Focusable = true,
@@ -113,58 +131,100 @@ internal sealed class TrayIconService : IDisposable
             FontSize = 13
         };
 
-        var status = _getStatus();
-        menu.Items.Add(BuildStatusHeader(status));
+        var statusHeader = BuildStatusHeader();
+        menu.Items.Add(statusHeader);
         menu.Items.Add(BuildSeparator());
         menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuOpenPortLens"), PackIconKind.OpenInApp, (_, _) => _showMainWindow()));
         menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuSettings"), PackIconKind.CogOutline, async (_, _) => await _showSettingsAsync()));
-        menu.Items.Add(BuildMenuItem(
-            status.IsPaused ? Resources.GetString("TrayMenuResumeScanning") : Resources.GetString("TrayMenuPauseScanning"),
-            status.IsPaused ? PackIconKind.PlayOutline : PackIconKind.Pause,
-            (_, _) => _toggleScanPaused()));
-        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuRefresh"), PackIconKind.Refresh, async (_, _) => await _refreshAsync(), isEnabled: !status.IsPaused));
-        menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuCopyPortSummary"), PackIconKind.ContentCopy, (_, _) => _copyPortSummary(), isEnabled: status.ServiceCount > 0));
+        _pauseResumeItem = BuildMenuItem("", PackIconKind.Pause, (_, _) => _toggleScanPaused());
+        menu.Items.Add(_pauseResumeItem);
+        _refreshItem = BuildMenuItem(Resources.GetString("TrayMenuRefresh"), PackIconKind.Refresh, async (_, _) => await _refreshAsync());
+        menu.Items.Add(_refreshItem);
+        _copySummaryItem = BuildMenuItem(Resources.GetString("TrayMenuCopyPortSummary"), PackIconKind.ContentCopy, (_, _) => _copyPortSummary());
+        menu.Items.Add(_copySummaryItem);
         menu.Items.Add(BuildSeparator());
         menu.Items.Add(BuildMenuItem(Resources.GetString("TrayMenuExit"), PackIconKind.ExitToApp, (_, _) => _exitApplication(), isDestructive: true));
 
-        menu.Closed += (_, _) =>
-        {
-            if (ReferenceEquals(_contextMenu, menu))
-            {
-                _contextMenu = null;
-            }
-        };
-        _contextMenu = menu;
-        menu.IsOpen = true;
-        menu.Focus();
+        return menu;
     }
 
-    private static Border BuildStatusHeader(TrayStatusSnapshot status)
+    private void UpdateContextMenuState(TrayStatusSnapshot status)
+    {
+        if (_statusCountText is not null)
+        {
+            _statusCountText.Text = status.ShowAllPorts
+                ? Resources.GetString("TrayStatusPortsFormat", status.ServiceCount)
+                : Resources.GetString("TrayStatusServicesFormat", status.ServiceCount);
+        }
+
+        if (_statusSubText is not null)
+        {
+            _statusSubText.Text = status.IsPaused
+                ? Resources.GetString("TrayStatusPaused")
+                : status.LastScanAt is { } lastScanAt
+                    ? Resources.GetString("TrayStatusLastScanFormat", lastScanAt)
+                    : Resources.GetString("TrayStatusNotScanned");
+        }
+
+        if (_pauseResumeItem is not null)
+        {
+            var isPaused = status.IsPaused;
+            UpdateMenuItemHeader(_pauseResumeItem, isPaused ? Resources.GetString("TrayMenuResumeScanning") : Resources.GetString("TrayMenuPauseScanning"), isPaused ? PackIconKind.PlayOutline : PackIconKind.Pause);
+        }
+
+        if (_refreshItem is not null)
+        {
+            _refreshItem.IsEnabled = !status.IsPaused;
+        }
+
+        if (_copySummaryItem is not null)
+        {
+            _copySummaryItem.IsEnabled = status.ServiceCount > 0;
+        }
+    }
+
+    private static void UpdateMenuItemHeader(System.Windows.Controls.MenuItem item, string text, PackIconKind iconKind)
+    {
+        if (item.Header is not StackPanel panel)
+        {
+            return;
+        }
+
+        foreach (var child in panel.Children)
+        {
+            if (child is PackIcon icon)
+            {
+                icon.Kind = iconKind;
+            }
+            else if (child is System.Windows.Controls.TextBlock textBlock)
+            {
+                textBlock.Text = text;
+            }
+        }
+    }
+
+    private Border BuildStatusHeader()
     {
         var panel = new StackPanel
         {
             Margin = new Thickness(12, 8, 12, 8)
         };
-        panel.Children.Add(new TextBlock
+
+        _statusCountText = new TextBlock
         {
-            Text = status.ShowAllPorts
-                ? Resources.GetString("TrayStatusPortsFormat", status.ServiceCount)
-                : Resources.GetString("TrayStatusServicesFormat", status.ServiceCount),
             FontSize = 13,
             FontWeight = FontWeights.SemiBold,
             Foreground = FindBrush("PortLensGroupTitleBrush")
-        });
-        panel.Children.Add(new TextBlock
+        };
+        panel.Children.Add(_statusCountText);
+
+        _statusSubText = new TextBlock
         {
-            Text = status.IsPaused
-                ? Resources.GetString("TrayStatusPaused")
-                : status.LastScanAt is { } lastScanAt
-                    ? Resources.GetString("TrayStatusLastScanFormat", lastScanAt)
-                    : Resources.GetString("TrayStatusNotScanned"),
             FontSize = 12,
             Foreground = FindBrush("PortLensTextBrush"),
             Margin = new Thickness(0, 3, 0, 0)
-        });
+        };
+        panel.Children.Add(_statusSubText);
 
         return new Border
         {

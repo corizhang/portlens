@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using MaterialDesignThemes.Wpf;
 using PortLens.Desktop.Properties;
 using PortLens.Desktop.Services;
@@ -14,6 +15,8 @@ namespace PortLens.Desktop.Dialogs;
 
 public partial class SettingsDialog : System.Windows.Controls.UserControl
 {
+    private static readonly Dictionary<string, BitmapImage> BadgeImageCache = new();
+
     private readonly List<int> _excludedPorts;
     private readonly Dictionary<string, WpfCheckBox> _frameworkToggles = new(StringComparer.OrdinalIgnoreCase);
     private readonly UpdateCheckService _updateCheckService;
@@ -227,21 +230,37 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         var encodedProject = Uri.EscapeDataString("corizhang/portlens");
         var encodedVersion = Uri.EscapeDataString(version);
 
-        ProjectUrlBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri($"https://img.shields.io/badge/GitHub-{encodedProject}-blue.png?logo=github", UriKind.Absolute));
+        ProjectUrlBadge.Source = LoadCachedBadgeImage(
+            $"https://img.shields.io/badge/GitHub-{encodedProject}-blue.png?logo=github");
 
-        VersionBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri($"https://img.shields.io/badge/{Properties.Resources.GetString("AboutVersion")}-{encodedVersion}-blue.png", UriKind.Absolute));
+        VersionBadge.Source = LoadCachedBadgeImage(
+            $"https://img.shields.io/badge/{Properties.Resources.GetString("AboutVersion")}-{encodedVersion}-blue.png");
 
         LatestVersionBadge.Source = string.IsNullOrWhiteSpace(latestVersion)
             ? null
-            : new System.Windows.Media.Imaging.BitmapImage(
-                new Uri($"https://img.shields.io/github/v/release/corizhang/portlens.png?label={Properties.Resources.GetString("AboutLatestVersionFormat").Replace("v{0}", "").Trim(':',' ')}&color=green", UriKind.Absolute));
+            : LoadCachedBadgeImage(
+                $"https://img.shields.io/github/v/release/corizhang/portlens.png?label={Properties.Resources.GetString("AboutLatestVersionFormat").Replace("v{0}", "").Trim(':',' ')}&color=green");
 
-        LicenseBadge.Source = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri("https://img.shields.io/github/license/corizhang/portlens.png", UriKind.Absolute));
+        LicenseBadge.Source = LoadCachedBadgeImage("https://img.shields.io/github/license/corizhang/portlens.png");
 
         UpdateAboutUpdateStatus();
+    }
+
+    private static BitmapImage LoadCachedBadgeImage(string url)
+    {
+        if (BadgeImageCache.TryGetValue(url, out var cached))
+        {
+            return cached;
+        }
+
+        var image = new BitmapImage();
+        image.BeginInit();
+        image.UriSource = new Uri(url, UriKind.Absolute);
+        image.CacheOption = BitmapCacheOption.OnLoad;
+        image.EndInit();
+
+        BadgeImageCache[url] = image;
+        return image;
     }
 
     private void UpdateAboutUpdateStatus()

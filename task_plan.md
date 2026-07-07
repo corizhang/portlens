@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P3-1：托盘菜单缓存与 About 徽章缓存（进行中）
+阶段 P3-2：命令行空白归一化去 Regex（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -236,15 +236,15 @@
 ### 阶段 P3：UI 与微优化（低优先级）
 
 #### P3-1：托盘菜单缓存与 About 徽章缓存
-- [ ] 托盘 `ContextMenu` 只构建一次，状态变化时更新
-- [ ] shields.io 徽章图片本地/内存缓存
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 托盘 `ContextMenu` 只构建一次，状态变化时更新
+- [x] shields.io 徽章图片本地/内存缓存
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 #### P3-2：命令行空白归一化去 Regex
 - [ ] 用 `StringBuilder`/`ValueStringBuilder` 替换 `Regex.Replace`
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 #### P3-3：`AppMetricsTimer` 后台暂停
 - [ ] 窗口隐藏/最小化时暂停，恢复时立即更新

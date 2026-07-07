@@ -694,3 +694,30 @@
 
 ---
 *每个阶段完成后或遇到错误时更新此文件*
+
+### 阶段 P3-1：托盘菜单缓存与 About 徽章缓存
+- **状态：** complete
+- **开始时间：** 2026-07-07
+- **完成时间：** 2026-07-07
+- 执行的操作：
+  - 修改 `TrayIconService`：将托盘右键 `ContextMenu` 的构建从每次右键触发改为只构建一次，缓存菜单骨架
+  - 提取动态状态文本控件引用（`_statusCountText`、`_statusSubText`），在 `ShowContextMenu` 时根据最新 `TrayStatusSnapshot` 更新
+  - 缓存暂停/恢复、刷新、复制摘要菜单项引用，按状态更新文案/图标/可用性
+  - 在 `SettingsDialog.xaml.cs` 中添加静态 `BadgeImageCache`（`Dictionary<string, BitmapImage>`），About 页四个 shields.io 徽章图片只下载/创建一次，后续复用
+  - 运行 `dotnet build PortLens.sln` 验证（0 警告，0 错误）
+  - 运行 `dotnet test PortLens.sln` 验证（61 个测试全部通过）
+  - 运行 `scripts/publish.ps1` 发布
+  - 运行 `scripts/smoke-test.ps1` 验证发布后的 `PortLens.exe` 窗口正常显示
+- 创建/修改的文件：
+  - `work/PortLens.Desktop/Services/TrayIconService.cs`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml.cs`
+  - `task_plan.md`
+  - `progress.md`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln` | 全部通过 | 61 个测试通过，0 失败 | 通过 |
+  | 发布 exe 启动 | `scripts/smoke-test.ps1` | 窗口正常显示 | PID=29204，Children=0，Smoke test passed | 通过 |
+- 下一步：
+  - 实施 P3-2：命令行空白归一化去 Regex
