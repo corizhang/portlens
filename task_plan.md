@@ -167,7 +167,7 @@
 - **状态：** complete
 
 ## 当前阶段
-阶段 P2-1：`FrameworkDetector` 避免大字符串拼接（进行中）
+阶段 P2-2：`ProjectRootResolver` 目录 marker 缓存（进行中）
 
 ### 阶段 P0：性能瓶颈根治（高优先级）
 
@@ -214,18 +214,18 @@
 ### 阶段 P2：算法与集合优化（中优先级）
 
 #### P2-1：`FrameworkDetector` 避免大字符串拼接
-- [ ] 改为按 ProcessName、CommandLine、路径分段匹配
-- [ ] 使用 `ReadOnlySpan<char>` / `SearchValues<string>` 减少分配
-- [ ] 保持现有框架识别准确率
-- [ ] 构建/测试/发布/提交
-- **状态：** in_progress
+- [x] 改为按 ProcessName、CommandLine、路径分段匹配
+- [x] 使用 `ReadOnlySpan<char>` / `MemoryExtensions.Contains` 减少分配
+- [x] 保持现有框架识别准确率
+- [x] 构建/测试/发布/提交
+- **状态：** complete
 
 #### P2-2：`ProjectRootResolver` 目录 marker 缓存
 - [ ] 添加 `ConcurrentDictionary<string, DirectoryInfo?>` 缓存，TTL 30s
 - [ ] 调整 marker 检查顺序，高命中优先
 - [ ] 验证聚合分组行为不变
 - [ ] 构建/测试/发布/提交
-- **状态：** pending
+- **状态：** in_progress
 
 #### P2-3：复用 `ApplyEntries` 中间集合
 - [ ] 复用 `HashSet<PortEntryKey>` 和 `List<PortEntryViewModel>`
