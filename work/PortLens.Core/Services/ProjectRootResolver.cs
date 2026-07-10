@@ -154,6 +154,11 @@ public static class ProjectRootResolver
     {
         for (var current = start; current is not null; current = current.Parent)
         {
+            if (IsBoundaryDirectory(current))
+            {
+                break;
+            }
+
             if (HasRootMarker(current))
             {
                 return current;
@@ -161,6 +166,26 @@ public static class ProjectRootResolver
         }
 
         return null;
+    }
+
+    private static bool IsBoundaryDirectory(DirectoryInfo directory)
+    {
+        var path = directory.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return IsSamePath(path, Environment.GetFolderPath(Environment.SpecialFolder.UserProfile))
+            || IsSamePath(path, Path.GetTempPath())
+            || IsSamePath(path, Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData))
+            || IsSamePath(path, Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData));
+    }
+
+    private static bool IsSamePath(string path, string? candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return false;
+        }
+
+        var normalized = candidate.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return path.Equals(normalized, StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool HasRootMarker(DirectoryInfo directory)

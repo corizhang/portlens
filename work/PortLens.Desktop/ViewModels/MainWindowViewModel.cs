@@ -40,6 +40,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _appResourceText = Properties.Resources.GetString("AppResourceIdle");
     private HashSet<int> _excludedPorts = new();
     private HashSet<string> _enabledFrameworks = new(StringComparer.OrdinalIgnoreCase);
+    private List<FrameworkRule> _frameworkRules = FrameworkRules.CloneDefaults().ToList();
 
     public MainWindowViewModel(PortScanner scanner, ILogger<MainWindowViewModel> logger)
     {
@@ -253,7 +254,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             {
                 ShowAll = showAll,
                 ExcludedPorts = _excludedPorts.ToHashSet(),
-                EnabledFrameworks = _enabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                EnabledFrameworks = _enabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                FrameworkRules = _frameworkRules
             };
             var entries = await Task.Run(() => _scanner.Scan(options, cancellationToken), cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -309,7 +311,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         RefreshIntervalSeconds = NormalizeRefreshInterval(state.RefreshIntervalSeconds);
         GroupByProject = state.GroupByProject;
         _excludedPorts = NormalizeExcludedPorts(state.ExcludedPorts);
-        _enabledFrameworks = NormalizeEnabledFrameworks(state.EnabledFrameworks);
+        _frameworkRules = NormalizeFrameworkRules(state.FrameworkRules);
+        _enabledFrameworks = NormalizeEnabledFrameworks(state.EnabledFrameworks, _frameworkRules);
         ApplyGrouping();
     }
 
@@ -323,8 +326,9 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             GroupByProject = GroupByProject,
             ExcludedPorts = _excludedPorts.Order().ToList(),
             EnabledFrameworks = _enabledFrameworks
-                .OrderBy(framework => Array.IndexOf(DesktopSettings.DefaultEnabledFrameworks, framework))
-                .ToList()
+                .OrderBy(framework => GetFrameworkOrder(framework, _frameworkRules))
+                .ToList(),
+            FrameworkRules = _frameworkRules.Select(rule => rule.Clone()).ToList()
         };
     }
 
@@ -472,14 +476,59 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             ?? new HashSet<int>();
     }
 
-    private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks)
+    private static HashSet<string> NormalizeEnabledFrameworks(IEnumerable<string>? frameworks, IReadOnlyList<FrameworkRule> rules)
     {
-        var valid = DesktopSettings.DefaultEnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var valid = rules.Select(rule => rule.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var normalized = frameworks?
             .Where(framework => valid.Contains(framework))
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         return normalized is { Count: > 0 } ? normalized : valid;
+    }
+
+    private static List<FrameworkRule> NormalizeFrameworkRules(IEnumerable<FrameworkRule>? rules)
+    {
+        var normalized = rules?
+            .Where(rule => !string.IsNullOrWhiteSpace(rule.Name))
+            .Select(rule =>
+            {
+                var clone = rule.Clone();
+                clone.Name = clone.Name.Trim();
+                clone.ProcessNameKeywords = NormalizeKeywords(clone.ProcessNameKeywords).ToList();
+                clone.CommandLineKeywords = NormalizeKeywords(clone.CommandLineKeywords).ToList();
+                clone.PathKeywords = NormalizeKeywords(clone.PathKeywords).ToList();
+                clone.DefaultPorts = clone.DefaultPorts
+                    .Where(port => port is > 0 and <= 65535)
+                    .Distinct()
+                    .Order()
+                    .ToList();
+                return clone;
+            })
+            .GroupBy(rule => rule.Name, StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+
+        return normalized is { Count: > 0 } ? normalized : FrameworkRules.CloneDefaults().ToList();
+    }
+
+    private static IEnumerable<string> NormalizeKeywords(IEnumerable<string>? keywords)
+        => keywords?
+            .Where(keyword => !string.IsNullOrWhiteSpace(keyword))
+            .Select(keyword => keyword.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            ?? [];
+
+    private static int GetFrameworkOrder(string framework, IReadOnlyList<FrameworkRule> rules)
+    {
+        for (var i = 0; i < rules.Count; i++)
+        {
+            if (rules[i].Name.Equals(framework, StringComparison.OrdinalIgnoreCase))
+            {
+                return i;
+            }
+        }
+
+        return int.MaxValue;
     }
 
     private void OnPropertyChanged(string propertyName)
@@ -516,4 +565,5 @@ public sealed class MainWindowState
     public bool GroupByProject { get; set; } = true;
     public IReadOnlyList<int> ExcludedPorts { get; set; } = [];
     public IReadOnlyList<string> EnabledFrameworks { get; set; } = [];
+    public IReadOnlyList<FrameworkRule> FrameworkRules { get; set; } = [];
 }

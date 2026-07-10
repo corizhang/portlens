@@ -429,10 +429,15 @@
                         </StackPanel>
                     </ScrollViewer>
 
-                    <ScrollViewer x:Name="RulesTabContent"
-                                  VerticalScrollBarVisibility="Auto"
-                                  Visibility="Collapsed">
-                        <StackPanel Margin="0,10,0,14">
+                    <Grid x:Name="RulesTabContent"
+                          Visibility="Collapsed"
+                          Margin="0,10,0,0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Grid.Row="0"
+                                    Margin="0,0,0,14">
                             <TextBlock Text="{loc:Loc Key=RulesTitle}"
                                        FontSize="14"
                                        FontWeight="SemiBold"
@@ -443,10 +448,50 @@
                                        Foreground="{DynamicResource PortLensTextBrush}"
                                        FontSize="12"
                                        Margin="0,0,0,16" />
-                            <UniformGrid x:Name="FrameworkRulesGrid"
-                                         Columns="3" />
+                            <StackPanel Orientation="Horizontal"
+                                        Margin="0,0,0,0">
+                                <Button Content="Add rule"
+                                        MinWidth="96"
+                                        Margin="0,0,8,0"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Click="AddFrameworkRuleButton_Click" />
+                                <Button Content="{loc:Loc Key=ButtonReset}"
+                                        MinWidth="96"
+                                        Style="{StaticResource MaterialDesignOutlinedButton}"
+                                        Click="ResetFrameworkRulesButton_Click" />
+                            </StackPanel>
                         </StackPanel>
-                    </ScrollViewer>
+                        <Grid Grid.Row="1"
+                              MinHeight="260">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="190" />
+                                <ColumnDefinition Width="16" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <DockPanel Grid.Column="0"
+                                       LastChildFill="True">
+                                <TextBox x:Name="FrameworkRuleSearchBox"
+                                         DockPanel.Dock="Top"
+                                         Margin="0,0,0,10"
+                                         TextChanged="FrameworkRuleSearchBox_TextChanged"
+                                         Style="{StaticResource SettingsSearchTextBox}"
+                                         materialDesign:HintAssist.Hint="Search rules" />
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <StackPanel x:Name="FrameworkRulesList" />
+                                </ScrollViewer>
+                            </DockPanel>
+
+                            <Border Grid.Column="2"
+                                    BorderBrush="{DynamicResource PortLensBorderBrush}"
+                                    BorderThickness="1,0,0,0"
+                                    Padding="16,0,0,0">
+                                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                    <ContentControl x:Name="FrameworkRuleDetailsHost" />
+                                </ScrollViewer>
+                            </Border>
+                        </Grid>
+                    </Grid>
 
                     <DockPanel x:Name="BlacklistTabContent"
                                Margin="0,10,0,0"

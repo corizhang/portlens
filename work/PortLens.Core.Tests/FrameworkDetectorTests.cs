@@ -83,6 +83,77 @@ public class FrameworkDetectorTests
         Assert.Equal("Spring", actual);
     }
 
+    [Fact]
+    public void InferFramework_CustomRuleCommandLine_ReturnsCustomName()
+    {
+        var entry = new PortEntry
+        {
+            ProcessName = "ruby",
+            CommandLine = "bundle exec rails server"
+        };
+        var rules = new[]
+        {
+            new FrameworkRule
+            {
+                Name = "Rails",
+                CommandLineKeywords = ["rails server"]
+            }
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry, rules);
+
+        Assert.Equal("Rails", actual);
+    }
+
+    [Fact]
+    public void InferFramework_CustomRulePathKeyword_ReturnsCustomName()
+    {
+        var entry = new PortEntry
+        {
+            ProcessName = "php",
+            WorkingDirectory = @"D:\code\shop\laravel-api"
+        };
+        var rules = new[]
+        {
+            new FrameworkRule
+            {
+                Name = "Laravel",
+                PathKeywords = ["laravel"]
+            }
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry, rules);
+
+        Assert.Equal("Laravel", actual);
+    }
+
+    [Fact]
+    public void InferFramework_UsesRuleOrder_WhenMultipleRulesMatch()
+    {
+        var entry = new PortEntry
+        {
+            ProcessName = "node",
+            CommandLine = "node server.js"
+        };
+        var rules = new[]
+        {
+            new FrameworkRule
+            {
+                Name = "Node Service",
+                ProcessNameKeywords = ["node"]
+            },
+            new FrameworkRule
+            {
+                Name = "Generic JavaScript",
+                CommandLineKeywords = ["node"]
+            }
+        };
+
+        var actual = FrameworkDetector.InferFramework(entry, rules);
+
+        Assert.Equal("Node Service", actual);
+    }
+
     private static string CreateFakeSpringBootJar()
     {
         var path = Path.Combine(Path.GetTempPath(), $"portlens-spring-{Guid.NewGuid()}.jar");

@@ -3,13 +3,16 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using MaterialDesignThemes.Wpf;
+using PortLens.Models;
 using PortLens.Desktop.Properties;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
+using PortLens.Services;
 using WpfButton = System.Windows.Controls.Button;
 using WpfCheckBox = System.Windows.Controls.CheckBox;
 using WpfColor = System.Windows.Media.Color;
 using WpfComboBox = System.Windows.Controls.ComboBox;
+using WpfTextBox = System.Windows.Controls.TextBox;
 
 namespace PortLens.Desktop.Dialogs;
 
@@ -18,8 +21,9 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
     private static readonly Dictionary<string, BitmapImage> BadgeImageCache = new();
 
     private readonly List<int> _excludedPorts;
-    private readonly Dictionary<string, WpfCheckBox> _frameworkToggles = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<FrameworkRuleEditor> _frameworkRuleEditors = [];
     private readonly UpdateCheckService _updateCheckService;
+    private FrameworkRuleEditor? _selectedFrameworkRuleEditor;
     private string _latestVersion = "";
     private UpdateInfo? _updateInfo;
 
@@ -41,7 +45,7 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         SelectLanguage(state.Language);
         BuildFontCombo(ChineseFontCombo, state.ChineseFontFamily);
         BuildFontCombo(EnglishFontCombo, state.EnglishFontFamily);
-        BuildFrameworkRules(state.EnabledFrameworks);
+        BuildFrameworkRules(state.FrameworkRules, state.EnabledFrameworks);
         RenderBlacklist();
         UpdateBlacklistTabTitle();
         InitializeAboutTab(state.Version, state.LatestVersion, state.UpdateInfo);
@@ -148,22 +152,310 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
         return comboBox.SelectedValue?.ToString() ?? "";
     }
 
-    private void BuildFrameworkRules(IReadOnlySet<string> enabledFrameworks)
+    private void BuildFrameworkRules(IReadOnlyList<FrameworkRule> rules, IReadOnlySet<string> enabledFrameworks)
     {
-        FrameworkRulesGrid.Children.Clear();
-        _frameworkToggles.Clear();
-        foreach (var framework in DesktopSettings.DefaultEnabledFrameworks)
+        FrameworkRulesList.Children.Clear();
+        FrameworkRuleDetailsHost.Content = null;
+        _frameworkRuleEditors.Clear();
+        _selectedFrameworkRuleEditor = null;
+
+        var sourceRules = rules.Count > 0 ? rules : FrameworkRules.CloneDefaults();
+        foreach (var rule in sourceRules)
         {
-            var checkBox = new WpfCheckBox
+            AddFrameworkRuleEditor(rule, enabledFrameworks.Contains(rule.Name));
+        }
+
+        RenderFrameworkRuleList();
+        SelectFrameworkRule(_frameworkRuleEditors.FirstOrDefault());
+    }
+
+    private void AddFrameworkRuleEditor(FrameworkRule rule, bool isEnabled)
+    {
+        var details = new StackPanel();
+        var header = new Grid { Margin = new Thickness(0, 0, 0, 14) };
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        header.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+        var enabled = new WpfCheckBox
+        {
+            IsChecked = isEnabled,
+            VerticalAlignment = VerticalAlignment.Center,
+            Margin = new Thickness(0, 0, 10, 0)
+        };
+        header.Children.Add(enabled);
+
+        var name = new WpfTextBox
+        {
+            Text = rule.Name,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedTextBox"),
+            MinWidth = 160,
+            Margin = new Thickness(0, 0, 10, 0)
+        };
+        HintAssist.SetHint(name, "Framework name");
+        Grid.SetColumn(name, 1);
+        header.Children.Add(name);
+
+        var remove = new WpfButton
+        {
+            Content = Properties.Resources.GetString("ButtonRemove"),
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedButton"),
+            MinWidth = 76,
+            Height = 32,
+            Padding = new Thickness(8, 0, 8, 0)
+        };
+        Grid.SetColumn(remove, 2);
+        header.Children.Add(remove);
+        details.Children.Add(header);
+
+        var processKeywords = CreateRuleTextBox("Process keywords", ToCsv(rule.ProcessNameKeywords));
+        var commandKeywords = CreateRuleTextBox("Command keywords", ToCsv(rule.CommandLineKeywords));
+        var pathKeywords = CreateRuleTextBox("Path keywords", ToCsv(rule.PathKeywords));
+        var defaultPorts = CreateRuleTextBox("Default ports", string.Join(", ", rule.DefaultPorts));
+
+        details.Children.Add(processKeywords);
+        details.Children.Add(commandKeywords);
+        details.Children.Add(pathKeywords);
+        details.Children.Add(defaultPorts);
+
+        var navName = new TextBlock
+        {
+            FontWeight = FontWeights.SemiBold,
+            Foreground = TryFindResource("PortLensSectionTitleBrush") as System.Windows.Media.Brush,
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var navSummary = new TextBlock
+        {
+            FontSize = 11,
+            Foreground = TryFindResource("PortLensTextBrush") as System.Windows.Media.Brush,
+            Margin = new Thickness(0, 2, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis
+        };
+        var navContent = new Grid();
+        navContent.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        navContent.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        var navStatus = new Border
+        {
+            Width = 7,
+            Height = 7,
+            Margin = new Thickness(0, 5, 9, 0),
+            VerticalAlignment = VerticalAlignment.Top,
+            Background = TryFindResource("PortLensBrandBrush") as System.Windows.Media.Brush
+        };
+        navContent.Children.Add(navStatus);
+
+        var navText = new StackPanel();
+        navText.Children.Add(navName);
+        navText.Children.Add(navSummary);
+        Grid.SetColumn(navText, 1);
+        navContent.Children.Add(navText);
+
+        var navButton = new WpfButton
+        {
+            Content = navContent,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignFlatButton"),
+            HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
+            Padding = new Thickness(10, 8, 8, 8),
+            Margin = new Thickness(0, 0, 0, 4),
+            BorderThickness = new Thickness(0)
+        };
+
+        var editor = new FrameworkRuleEditor(
+            navButton,
+            navStatus,
+            navName,
+            navSummary,
+            details,
+            enabled,
+            name,
+            processKeywords,
+            commandKeywords,
+            pathKeywords,
+            defaultPorts);
+        _frameworkRuleEditors.Add(editor);
+
+        navButton.Click += (_, _) => SelectFrameworkRule(editor);
+        remove.Click += (_, _) =>
+        {
+            var index = _frameworkRuleEditors.IndexOf(editor);
+            _frameworkRuleEditors.Remove(editor);
+            if (ReferenceEquals(_selectedFrameworkRuleEditor, editor))
             {
-                Content = framework,
-                IsChecked = enabledFrameworks.Contains(framework),
-                Margin = new Thickness(0, 0, 10, 8)
-            };
-            _frameworkToggles[framework] = checkBox;
-            FrameworkRulesGrid.Children.Add(checkBox);
+                SelectFrameworkRule(_frameworkRuleEditors.ElementAtOrDefault(Math.Min(index, _frameworkRuleEditors.Count - 1)));
+            }
+
+            RenderFrameworkRuleList();
+        };
+        enabled.Checked += (_, _) => UpdateFrameworkRuleNav(editor);
+        enabled.Unchecked += (_, _) => UpdateFrameworkRuleNav(editor);
+        name.TextChanged += (_, _) => UpdateFrameworkRuleNav(editor);
+        processKeywords.TextChanged += (_, _) => UpdateFrameworkRuleNav(editor);
+        commandKeywords.TextChanged += (_, _) => UpdateFrameworkRuleNav(editor);
+        pathKeywords.TextChanged += (_, _) => UpdateFrameworkRuleNav(editor);
+        defaultPorts.TextChanged += (_, _) => UpdateFrameworkRuleNav(editor);
+        UpdateFrameworkRuleNav(editor);
+    }
+
+    private WpfTextBox CreateRuleTextBox(string hint, string text)
+    {
+        var textBox = new WpfTextBox
+        {
+            Text = text,
+            Style = (Style)System.Windows.Application.Current.FindResource("MaterialDesignOutlinedTextBox"),
+            Margin = new Thickness(28, 0, 0, 8)
+        };
+        HintAssist.SetHint(textBox, hint);
+        return textBox;
+    }
+
+    private void FrameworkRuleSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        RenderFrameworkRuleList();
+    }
+
+    private void RenderFrameworkRuleList()
+    {
+        FrameworkRulesList.Children.Clear();
+        var query = FrameworkRuleSearchBox.Text.Trim();
+        foreach (var editor in _frameworkRuleEditors.Where(editor => MatchesFrameworkRuleSearch(editor, query)))
+        {
+            FrameworkRulesList.Children.Add(editor.NavButton);
         }
     }
+
+    private static bool MatchesFrameworkRuleSearch(FrameworkRuleEditor editor, string query)
+    {
+        return string.IsNullOrWhiteSpace(query)
+            || editor.Name.Text.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || editor.ProcessKeywords.Text.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || editor.CommandKeywords.Text.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || editor.PathKeywords.Text.Contains(query, StringComparison.OrdinalIgnoreCase)
+            || editor.DefaultPorts.Text.Contains(query, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void SelectFrameworkRule(FrameworkRuleEditor? editor)
+    {
+        _selectedFrameworkRuleEditor = editor;
+        FrameworkRuleDetailsHost.Content = editor is null
+            ? CreateNoFrameworkRuleSelectedView()
+            : editor.DetailsPanel;
+        foreach (var item in _frameworkRuleEditors)
+        {
+            item.NavButton.BorderThickness = ReferenceEquals(item, editor) ? new Thickness(2, 0, 0, 0) : new Thickness(0);
+            item.NavButton.BorderBrush = ReferenceEquals(item, editor)
+                ? TryFindResource("PortLensBrandBrush") as System.Windows.Media.Brush
+                : null;
+        }
+    }
+
+    private TextBlock CreateNoFrameworkRuleSelectedView()
+    {
+        return new TextBlock
+        {
+            Text = "Select a rule to edit, or add a new rule.",
+            Foreground = TryFindResource("PortLensTextBrush") as System.Windows.Media.Brush,
+            FontSize = 13,
+            Margin = new Thickness(0, 18, 0, 0)
+        };
+    }
+
+    private void UpdateFrameworkRuleNav(FrameworkRuleEditor editor)
+    {
+        var name = editor.Name.Text.Trim();
+        editor.NavName.Text = string.IsNullOrWhiteSpace(name) ? "Unnamed rule" : name;
+        editor.NavSummary.Text = BuildFrameworkRuleSummary(editor);
+        editor.NavStatus.Opacity = editor.Enabled.IsChecked == true ? 1 : 0.25;
+
+        if (!string.IsNullOrWhiteSpace(FrameworkRuleSearchBox.Text))
+        {
+            RenderFrameworkRuleList();
+        }
+    }
+
+    private static string BuildFrameworkRuleSummary(FrameworkRuleEditor editor)
+    {
+        var processCount = ParseCsv(editor.ProcessKeywords.Text).Count();
+        var commandCount = ParseCsv(editor.CommandKeywords.Text).Count();
+        var pathCount = ParseCsv(editor.PathKeywords.Text).Count();
+        var portCount = ParsePorts(editor.DefaultPorts.Text).Count();
+        var parts = new List<string>();
+        if (processCount > 0) parts.Add($"{processCount} process");
+        if (commandCount > 0) parts.Add($"{commandCount} command");
+        if (pathCount > 0) parts.Add($"{pathCount} path");
+        if (portCount > 0) parts.Add($"{portCount} ports");
+        return parts.Count > 0 ? string.Join(" · ", parts) : "No match keywords";
+    }
+
+    private static string ToCsv(IEnumerable<string> values)
+        => string.Join(", ", values);
+
+    private void AddFrameworkRuleButton_Click(object sender, RoutedEventArgs e)
+    {
+        AddFrameworkRuleEditor(new FrameworkRule { Name = "Custom" }, true);
+        RenderFrameworkRuleList();
+        SelectFrameworkRule(_frameworkRuleEditors.LastOrDefault());
+    }
+
+    private void ResetFrameworkRulesButton_Click(object sender, RoutedEventArgs e)
+    {
+        BuildFrameworkRules(FrameworkRules.CloneDefaults(), new HashSet<string>(FrameworkRules.DefaultNames(), StringComparer.OrdinalIgnoreCase));
+    }
+
+    private (IReadOnlyList<FrameworkRule> Rules, IReadOnlyList<string> EnabledFrameworks) CaptureFrameworkRules()
+    {
+        var rules = new List<FrameworkRule>();
+        var enabled = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var editor in _frameworkRuleEditors)
+        {
+            var name = editor.Name.Text.Trim();
+            if (string.IsNullOrWhiteSpace(name) || !seen.Add(name))
+            {
+                continue;
+            }
+
+            rules.Add(new FrameworkRule
+            {
+                Name = name,
+                ProcessNameKeywords = ParseCsv(editor.ProcessKeywords.Text).ToList(),
+                CommandLineKeywords = ParseCsv(editor.CommandKeywords.Text).ToList(),
+                PathKeywords = ParseCsv(editor.PathKeywords.Text).ToList(),
+                DefaultPorts = ParsePorts(editor.DefaultPorts.Text).ToList()
+            });
+
+            if (editor.Enabled.IsChecked == true)
+            {
+                enabled.Add(name);
+            }
+        }
+
+        if (rules.Count == 0)
+        {
+            rules = FrameworkRules.CloneDefaults().ToList();
+            enabled = FrameworkRules.DefaultNames().ToList();
+        }
+
+        if (enabled.Count == 0)
+        {
+            enabled = rules.Select(rule => rule.Name).ToList();
+        }
+
+        return (rules, enabled);
+    }
+
+    private static IEnumerable<string> ParseCsv(string text)
+        => text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(value => !string.IsNullOrWhiteSpace(value))
+            .Distinct(StringComparer.OrdinalIgnoreCase);
+
+    private static IEnumerable<int> ParsePorts(string text)
+        => ParseCsv(text)
+            .Select(value => int.TryParse(value, out var port) ? port : 0)
+            .Where(port => port is > 0 and <= 65535)
+            .Distinct()
+            .Order();
 
     private void RenderBlacklist()
     {
@@ -369,6 +661,8 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
             ? langItem.Tag?.ToString() ?? "en-US"
             : "en-US";
 
+        var frameworkRules = CaptureFrameworkRules();
+
         Close(new SettingsDialogResult
         {
             ShowSystemPorts = ShowSystemPortsToggle.IsChecked == true,
@@ -381,10 +675,8 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
             Language = selectedLanguage,
             ChineseFontFamily = GetSelectedFont(ChineseFontCombo),
             EnglishFontFamily = GetSelectedFont(EnglishFontCombo),
-            EnabledFrameworks = _frameworkToggles
-                .Where(pair => pair.Value.IsChecked == true)
-                .Select(pair => pair.Key)
-                .ToList(),
+            EnabledFrameworks = frameworkRules.EnabledFrameworks,
+            FrameworkRules = frameworkRules.Rules,
             ExcludedPorts = _excludedPorts.ToList()
         });
     }
@@ -393,4 +685,17 @@ public partial class SettingsDialog : System.Windows.Controls.UserControl
     {
         DialogHost.CloseDialogCommand.Execute(result, this);
     }
+
+    private sealed record FrameworkRuleEditor(
+        WpfButton NavButton,
+        Border NavStatus,
+        TextBlock NavName,
+        TextBlock NavSummary,
+        StackPanel DetailsPanel,
+        WpfCheckBox Enabled,
+        WpfTextBox Name,
+        WpfTextBox ProcessKeywords,
+        WpfTextBox CommandKeywords,
+        WpfTextBox PathKeywords,
+        WpfTextBox DefaultPorts);
 }

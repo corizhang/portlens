@@ -1,9 +1,12 @@
 namespace PortLens.Desktop.Settings;
 
+using PortLens.Models;
+using PortLens.Services;
+
 internal sealed class DesktopSettings
 {
-    public const int CurrentVersion = 2;
-    public static readonly string[] DefaultEnabledFrameworks = ["Vite", "Next.js", "Nuxt", "Django", "FastAPI", "Spring", ".NET", "Go", "Docker", "WSL"];
+    public const int CurrentVersion = 3;
+    public static readonly string[] DefaultEnabledFrameworks = PortLens.Services.FrameworkRules.DefaultNames();
 
     public int Version { get; set; } = CurrentVersion;
     public string SearchText { get; set; } = "";
@@ -17,6 +20,7 @@ internal sealed class DesktopSettings
     public string Language { get; set; } = "en-US";
     public List<int> ExcludedPorts { get; set; } = [];
     public List<string> EnabledFrameworks { get; set; } = [.. DefaultEnabledFrameworks];
+    public List<FrameworkRule> FrameworkRules { get; set; } = PortLens.Services.FrameworkRules.CloneDefaults().ToList();
     public double? WindowLeft { get; set; }
     public double? WindowTop { get; set; }
     public double? WindowWidth { get; set; }

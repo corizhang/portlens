@@ -106,8 +106,7 @@ public class ProjectNameResolverTests : IDisposable
     [Fact]
     public void InferWorkingDirectory_ReturnsNull_ForGoBuildPath()
     {
-        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        var goBuildDir = Path.Combine(localAppData, "go-build", "tmp");
+        var goBuildDir = Path.Combine(Path.GetTempPath(), "go-build", $"tmp-{Guid.NewGuid()}");
         Directory.CreateDirectory(goBuildDir);
         _tempPaths.Add(goBuildDir);
         var exePath = Path.Combine(goBuildDir, "app.exe");
@@ -190,8 +189,7 @@ public class ProjectNameResolverTests : IDisposable
 
     private string CreateTempDir()
     {
-        var root = Path.GetPathRoot(Path.GetTempPath()) ?? Path.GetTempPath();
-        var path = Path.Combine(root, $"PortLensTests-{Guid.NewGuid()}");
+        var path = Path.Combine(Path.GetTempPath(), $"PortLensTests-{Guid.NewGuid()}");
         Directory.CreateDirectory(path);
         _tempPaths.Add(path);
         return path;

@@ -251,7 +251,8 @@ public partial class MainWindow : Window
             RefreshIntervalSeconds = dialogResult.RefreshIntervalSeconds,
             GroupByProject = dialogResult.GroupByProject,
             ExcludedPorts = dialogResult.ExcludedPorts,
-            EnabledFrameworks = dialogResult.EnabledFrameworks
+            EnabledFrameworks = dialogResult.EnabledFrameworks,
+            FrameworkRules = dialogResult.FrameworkRules
         });
         SaveSettings();
         _ = _viewModel.RefreshAsync();
@@ -382,7 +383,8 @@ public partial class MainWindow : Window
             RefreshIntervalSeconds = _settings.RefreshIntervalSeconds,
             GroupByProject = _settings.GroupByProject,
             ExcludedPorts = _settings.ExcludedPorts,
-            EnabledFrameworks = _settings.EnabledFrameworks
+            EnabledFrameworks = _settings.EnabledFrameworks,
+            FrameworkRules = _settings.FrameworkRules
         };
     }
 
@@ -416,6 +418,7 @@ public partial class MainWindow : Window
         _settings.EnglishFontFamily = AppSettings.Instance.EnglishFontFamily;
         _settings.ExcludedPorts = state.ExcludedPorts.ToList();
         _settings.EnabledFrameworks = state.EnabledFrameworks.ToList();
+        _settings.FrameworkRules = state.FrameworkRules.Select(rule => rule.Clone()).ToList();
         _settings.IsMaximized = WindowState == WindowState.Maximized;
 
         if (!_rememberWindowPlacement)
@@ -476,7 +479,8 @@ public partial class MainWindow : Window
             RefreshIntervalSeconds = 5,
             GroupByProject = true,
             ExcludedPorts = [],
-            EnabledFrameworks = DesktopSettings.DefaultEnabledFrameworks
+            EnabledFrameworks = DesktopSettings.DefaultEnabledFrameworks,
+            FrameworkRules = PortLens.Services.FrameworkRules.CloneDefaults()
         });
         _rememberWindowPlacement = true;
         _closeToTray = true;
@@ -505,6 +509,7 @@ public partial class MainWindow : Window
                 EnglishFontFamily = _settings.EnglishFontFamily,
                 ExcludedPorts = _viewModel.CaptureState().ExcludedPorts.ToHashSet(),
                 EnabledFrameworks = _viewModel.CaptureState().EnabledFrameworks.ToHashSet(StringComparer.OrdinalIgnoreCase),
+                FrameworkRules = _viewModel.CaptureState().FrameworkRules,
                 Version = _viewModel.AppVersionText.TrimStart('v'),
                 LatestVersion = updateInfo?.LatestVersion ?? "",
                 UpdateInfo = updateInfo

@@ -98,7 +98,11 @@ public sealed class ProcessInspector
         }
     }
 
-    public void EnrichBasic(PortEntry entry, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, CancellationToken cancellationToken = default)
+    public void EnrichBasic(
+        PortEntry entry,
+        IReadOnlyDictionary<int, ProcessSnapshot> snapshot,
+        IReadOnlyList<FrameworkRule>? frameworkRules = null,
+        CancellationToken cancellationToken = default)
     {
         try
         {
@@ -119,7 +123,7 @@ public sealed class ProcessInspector
             var cached = GetCachedDetails(entry.ProcessId, allowStale: true);
             if (cached is not null)
             {
-                ApplyDetails(entry, cached);
+                ApplyDetails(entry, cached, frameworkRules);
                 return;
             }
 
@@ -130,7 +134,7 @@ public sealed class ProcessInspector
                 _basicDetailsCache[entry.ProcessId] = basic;
             }
 
-            ApplyDetails(entry, basic);
+            ApplyDetails(entry, basic, frameworkRules);
         }
         catch
         {
@@ -138,9 +142,13 @@ public sealed class ProcessInspector
         }
     }
 
-    public void EnrichDetails(PortEntry entry, IReadOnlyDictionary<int, ProcessSnapshot> snapshot, CancellationToken cancellationToken = default)
+    public void EnrichDetails(
+        PortEntry entry,
+        IReadOnlyDictionary<int, ProcessSnapshot> snapshot,
+        IReadOnlyList<FrameworkRule>? frameworkRules = null,
+        CancellationToken cancellationToken = default)
     {
-        EnrichBasic(entry, snapshot, cancellationToken);
+        EnrichBasic(entry, snapshot, frameworkRules, cancellationToken);
 
         var cached = GetCachedDetails(entry.ProcessId, allowStale: false);
         if (cached is null)
@@ -153,7 +161,7 @@ public sealed class ProcessInspector
             _basicDetailsCache[entry.ProcessId] = cached;
         }
 
-        ApplyDetails(entry, cached);
+        ApplyDetails(entry, cached, frameworkRules);
     }
 
     public void Kill(int processId)
@@ -172,12 +180,12 @@ public sealed class ProcessInspector
         return (_processTreeReader as ProcessTreeReader)?.GetParentMap(cancellationToken);
     }
 
-    private static void ApplyDetails(PortEntry entry, CachedProcessInfo cached)
+    private static void ApplyDetails(PortEntry entry, CachedProcessInfo cached, IReadOnlyList<FrameworkRule>? frameworkRules)
     {
         entry.ExecutablePath = cached.ExecutablePath;
         entry.CommandLine = cached.CommandLine;
         entry.WorkingDirectory = cached.WorkingDirectory;
-        entry.Framework = FrameworkDetector.InferFramework(entry);
+        entry.Framework = FrameworkDetector.InferFramework(entry, frameworkRules ?? FrameworkRules.Defaults);
         entry.ProjectName = ProjectNameResolver.ResolveProjectName(entry.WorkingDirectory, entry.ProcessName);
         entry.IsRecognizedDevelopmentService = !string.IsNullOrWhiteSpace(entry.Framework);
     }

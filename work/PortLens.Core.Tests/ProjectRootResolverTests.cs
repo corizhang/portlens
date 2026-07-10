@@ -148,8 +148,7 @@ public class ProjectRootResolverTests : IDisposable
 
     private string CreateTempDir()
     {
-        var root = Path.GetPathRoot(Path.GetTempPath()) ?? Path.GetTempPath();
-        var path = Path.Combine(root, $"PortLensTests-{Guid.NewGuid()}");
+        var path = Path.Combine(Path.GetTempPath(), $"PortLensTests-{Guid.NewGuid()}");
         Directory.CreateDirectory(path);
         _tempPaths.Add(path);
         return path;

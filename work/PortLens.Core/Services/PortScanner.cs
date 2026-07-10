@@ -46,13 +46,13 @@ public sealed class PortScanner
                 ProcessId = row.ProcessId
             };
 
-            _inspector.EnrichBasic(entry, snapshot, cancellationToken);
+            _inspector.EnrichBasic(entry, snapshot, options.FrameworkRules, cancellationToken);
             if (!options.ShowAll && !PortScannerFilters.IsEnabledDevelopmentService(entry, options.EnabledFrameworks))
             {
                 continue;
             }
 
-            _inspector.EnrichDetails(entry, snapshot, cancellationToken);
+            _inspector.EnrichDetails(entry, snapshot, options.FrameworkRules, cancellationToken);
             entries.Add(entry);
         }
 

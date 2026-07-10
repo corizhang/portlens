@@ -927,3 +927,47 @@
   - **Full Changelog**：`v1.0.9...v1.0.10`
 - 下一步：
   - 等待 GitHub Actions 构建并发布 Release v1.0.10
+
+### 阶段：发布 v1.0.11
+- **状态：** complete
+- **开始时间：** 2026-07-10
+- **完成时间：** 2026-07-10
+- 执行的操作：
+  - 将框架识别规则拆分为 Core 层 `FrameworkRule` / `FrameworkRules`，支持进程名关键词、命令行关键词、路径关键词和默认端口
+  - 将扫描链路接入自定义规则：`PortScanner` -> `ProcessInspector` -> `FrameworkDetector`
+  - 将设置持久化升级到 Version 3，保存 `FrameworkRules` 并兼容旧设置
+  - 将设置页 Rules Tab 从纵向长表单优化为左侧可搜索规则列表 + 右侧单条详情编辑器
+  - 修复项目根目录解析边界：用户主目录、Temp、AppData 不再因 `.vscode` 等 marker 被误判为项目根
+  - 新增 `RELEASE_NOTES_v1.0.11.md`
+- 创建/修改的文件：
+  - `RELEASE_NOTES_v1.0.11.md`
+  - `work/PortLens.Core/Models/FrameworkRule.cs`
+  - `work/PortLens.Core/Services/FrameworkRules.cs`
+  - `work/PortLens.Core/Services/FrameworkDetector.cs`
+  - `work/PortLens.Core/Services/PortScanner.cs`
+  - `work/PortLens.Core/Services/ProcessInspector.cs`
+  - `work/PortLens.Core/Services/ProjectRootResolver.cs`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml`
+  - `work/PortLens.Desktop/Dialogs/SettingsDialog.xaml.cs`
+  - `work/PortLens.Desktop/Settings/DesktopSettings.cs`
+  - `work/PortLens.Desktop/Settings/DesktopSettingsStore.cs`
+  - `work/PortLens.Desktop/ViewModels/MainWindowViewModel.cs`
+  - `work/PortLens.Desktop/Themes/PortLensStyles.xaml`
+  - `work/PortLens.Core.Tests/FrameworkDetectorTests.cs`
+  - `work/PortLens.Core.Tests/ProjectNameResolverTests.cs`
+  - `work/PortLens.Core.Tests/ProjectRootResolverTests.cs`
+- 测试结果：
+  | 测试 | 输入 | 预期结果 | 实际结果 | 状态 |
+  |------|------|---------|---------|------|
+  | Debug 构建 | `dotnet build PortLens.sln` | 成功 | 0 警告 0 错误 | 通过 |
+  | 单元测试 | `dotnet test PortLens.sln --no-build --no-restore` | 全部通过 | 77 个测试通过，0 失败 | 通过 |
+  | 本地发布 | `dotnet publish work/PortLens.Desktop/PortLens.Desktop.csproj -c Release -r win-x64 --self-contained false -o outputs\PortLensMaterial` | 成功 | 发布到 `outputs\PortLensMaterial` | 通过 |
+- Release notes 文件：
+  - `RELEASE_NOTES_v1.0.11.md`
+- Release notes 摘要：
+  - **New Features**：可配置框架识别规则、Rules 设置页管理体验
+  - **Improvements**：Rules 页两栏布局、设置页搜索框高度修复、默认规则模型迁移到 Core
+  - **Bug Fixes**：默认规则避免过宽进程名误判、项目根目录解析边界修复
+  - **Engineering**：新增规则检测测试，修复测试临时目录假设
+- 下一步：
+  - 创建 annotated tag `v1.0.11` 并推送到 GitHub 与 Gitea，触发 GitHub Actions Release 工作流

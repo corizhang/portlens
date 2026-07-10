@@ -1,5 +1,6 @@
 using System.Windows;
 
+using PortLens.Models;
 using PortLens.Desktop.Services;
 using PortLens.Desktop.Settings;
 
@@ -18,6 +19,7 @@ internal sealed class SettingsDialogResult
     public string Language { get; init; } = "en-US";
     public IReadOnlyList<int> ExcludedPorts { get; init; } = [];
     public IReadOnlyList<string> EnabledFrameworks { get; init; } = [];
+    public IReadOnlyList<FrameworkRule> FrameworkRules { get; init; } = [];
     public string ChineseFontFamily { get; init; } = "";
     public string EnglishFontFamily { get; init; } = "";
 }
@@ -34,6 +36,7 @@ internal sealed class SettingsDialogState
     public string Language { get; init; } = "en-US";
     public IReadOnlySet<int> ExcludedPorts { get; init; } = new HashSet<int>();
     public IReadOnlySet<string> EnabledFrameworks { get; init; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyList<FrameworkRule> FrameworkRules { get; init; } = [];
     public string ChineseFontFamily { get; init; } = "";
     public string EnglishFontFamily { get; init; } = "";
     public string Version { get; init; } = "1.0.0";
